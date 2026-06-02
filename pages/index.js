@@ -1362,6 +1362,10 @@ function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow })
         </div>
       )}
     </div>
+)
+}
+
+function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow }) {
   const [ohInput, setOhInput] = useState(ohBase)
   return (
     <div className="fade-in">
