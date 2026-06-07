@@ -834,14 +834,31 @@ function ViewProjects({ projects, setProjects, setPName, setPClient, setView, sa
   const save = () => {
     if (!form.name?.trim() || !form.client?.trim()) { toast('Fill required fields', 'err'); return }
     const proj = { ...form, id: editId || Date.now().toString(), files, createdAt: editId ? (projects.find(p=>p.id===editId)?.createdAt || new Date().toISOString()) : new Date().toISOString() }
-    if (editId) setProjects(ps => ps.map(p => p.id===editId ? proj : p))
-    else        setProjects(ps => [proj, ...ps])
-    setTimeout(() => saveNow(), 100)
+    const updatedProjects = editId 
+      ? projects.map(p => p.id===editId ? proj : p)
+      : [proj, ...projects]
+    setProjects(updatedProjects)
+    // Save immediately with updated projects
+    try {
+      const current = JSON.parse(localStorage.getItem('boud_v4') || '{}')
+      current.projects = updatedProjects
+      localStorage.setItem('boud_v4', JSON.stringify(current))
+    } catch(e) {}
     setModal(null)
     toast(editId ? 'Updated' : 'Project Created', 'ok')
   }
 
-  const del = (id) => { if (!confirm('Delete project?')) return; setProjects(ps=>ps.filter(p=>p.id!==id)); setTimeout(() => saveNow(), 100); toast('Deleted') }
+  const del = (id) => { 
+    if (!confirm('Delete project?')) return
+    const updated = projects.filter(p=>p.id!==id)
+    setProjects(updated)
+    try {
+      const current = JSON.parse(localStorage.getItem('boud_v4') || '{}')
+      current.projects = updated
+      localStorage.setItem('boud_v4', JSON.stringify(current))
+    } catch(e) {}
+    toast('Deleted')
+  }
   const fileIcon = t => !t?'📄':t.includes('pdf')?'📕':t.includes('sheet')||t.includes('csv')?'📊':t.includes('word')?'📝':t.includes('image')?'🖼️':'📄'
 
   return (
