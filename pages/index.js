@@ -232,27 +232,26 @@ Respond ONLY with valid JSON:
     setPoqAiStatus({ type:'blue', msg:'🤖 Reading contract and extracting deliverables...' })
     try {
       const rcList = RC.map(r => `"${r.role}" (${r.dept}, SAR ${r.daily}/day)`).join('\n')
-      const prompt = `You are a project pricing expert at BOUD AI.
-Analyze this contract/RFP and extract ALL deliverables/بنود as separate pricing items.
+      const prompt = `You are a project pricing expert at BOUD AI, Saudi Arabia.
+Analyze this contract/RFP and extract the main deliverables as separate pricing bands.
 
-For each deliverable, recommend:
-- Team members from this EXACT rate card:
+Rate Card (use ONLY these EXACT role names):
 ${rcList}
-- Tools needed
-- Vendor/subcontractor costs
 
-Respond ONLY with valid JSON:
+Return ONLY a valid JSON object. No markdown. No explanation. No extra text.
+Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
+
 {
   "project_name": "string",
-  "client": "string", 
+  "client": "string",
   "bands": [
     {
       "id": "band_1",
-      "name": "بند 1: اسم البند",
-      "description": "short description",
-      "team": [{"role":"EXACT role","dept":"string","daily":number,"days":number,"res":1}],
-      "tools": [{"name":"string","qty":1,"cost":number}],
-      "vendors": [{"name":"string","cost":number,"type":"One-time"}]
+      "name": "Band name here",
+      "description": "Short description",
+      "team": [{"role":"EXACT role name","dept":"dept","daily":0,"days":0,"res":1}],
+      "tools": [{"name":"tool name","qty":1,"cost":0}],
+      "vendors": [{"name":"vendor name","cost":0,"type":"One-time"}]
     }
   ]
 }`
@@ -276,7 +275,7 @@ Respond ONLY with valid JSON:
         },
         body: JSON.stringify({
           model: 'claude-opus-4-5',
-          max_tokens: 4000,
+          max_tokens: 8000,
           messages: [{ role:'user', content:[
             isPDF ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } }
                   : { type:'text', text:atob(b64) },
@@ -288,8 +287,19 @@ Respond ONLY with valid JSON:
       if (!response.ok) { const e = await response.json(); throw new Error(e.error?.message || 'API Error') }
       const data = await response.json()
       const raw  = data.content.find(b => b.type==='text')?.text || ''
-      const match = raw.match(/\{[\s\S]*\}/)
-      const result = JSON.parse(match ? match[0] : raw)
+      let result
+      try {
+        const match = raw.match(/\{[\s\S]*\}/)
+        result = JSON.parse(match ? match[0] : raw)
+      } catch(parseErr) {
+        // Try to extract partial JSON
+        const bandMatch = raw.match(/"bands"\s*:\s*(\[[\s\S]*?\])/)
+        if (bandMatch) {
+          result = { bands: JSON.parse(bandMatch[1]) }
+        } else {
+          throw new Error('Could not parse AI response. Try again or use a smaller file.')
+        }
+      }
 
       if (result.project_name?.trim()) setPName(result.project_name.trim())
       if (result.client?.trim())       setPClient(result.client.trim())
