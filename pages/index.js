@@ -48,6 +48,11 @@ export default function Home() {
   const [ohBase,       setOhBase]       = useState(544323)
   const [rcEditable,   setRcEditable]   = useState([])
   const [toolName,     setToolName]     = useState('')
+  const [pricingTab,   setPricingTab]   = useState('simple') // 'simple' | 'poq'
+  const [poqBands,     setPoqBands]     = useState([])
+  const [poqAnalyzing, setPoqAnalyzing] = useState(false)
+  const [poqAiStatus,  setPoqAiStatus]  = useState(null)
+  const [editingBand,  setEditingBand]  = useState(null)
   const [toolQty,      setToolQty]      = useState(1)
   const [toolCost,     setToolCost]     = useState('')
   const [vendName,     setVendName]     = useState('')
@@ -72,13 +77,14 @@ export default function Home() {
     if (d.apiKey)                 setApiKey(d.apiKey)
     if (d.ohBase)                 setOhBase(d.ohBase)
     if (d.rcEditable?.length)     setRcEditable(d.rcEditable)
+    if (d.poqBands?.length)       setPoqBands(d.poqBands)
   }, [])
 
   const getFullState = useCallback(() => ({
     projects, vendorsDB, toolsDB, savedProps, roster, pTools, pVendors,
-    pName, pClient, pOh, pProfit, pRisk, pDiscount, apiKey, ohBase, rcEditable,
+    pName, pClient, pOh, pProfit, pRisk, pDiscount, apiKey, ohBase, rcEditable, poqBands,
   }), [projects, vendorsDB, toolsDB, savedProps, roster, pTools, pVendors,
-       pName, pClient, pOh, pProfit, pRisk, pDiscount, apiKey, ohBase, rcEditable])
+       pName, pClient, pOh, pProfit, pRisk, pDiscount, apiKey, ohBase, rcEditable, poqBands])
 
   useEffect(() => {
     clearTimeout(autoTimer.current)
@@ -219,6 +225,195 @@ Respond ONLY with valid JSON:
     setRfpAnalyzing(false)
   }
 
+  const analyzePOQ = async () => {
+    if (!apiKey.trim()) { toast('Enter API key', 'err'); return }
+    if (!rfpFile)       { toast('Upload contract file first via AI Analyze RFP', 'err'); return }
+    setPoqAnalyzing(true)
+    setPoqAiStatus({ type:'blue', msg:'🤖 Reading contract and extracting deliverables...' })
+    try {
+      const rcList = RC.map(r => `"${r.role}" (${r.dept}, SAR ${r.daily}/day)`).join('\n')
+      const prompt = `You are a project pricing expert at BOUD AI.
+Analyze this contract/RFP and extract ALL deliverables/بنود as separate pricing items.
+
+For each deliverable, recommend:
+- Team members from this EXACT rate card:
+${rcList}
+- Tools needed
+- Vendor/subcontractor costs
+
+Respond ONLY with valid JSON:
+{
+  "project_name": "string",
+  "client": "string", 
+  "bands": [
+    {
+      "id": "band_1",
+      "name": "بند 1: اسم البند",
+      "description": "short description",
+      "team": [{"role":"EXACT role","dept":"string","daily":number,"days":number,"res":1}],
+      "tools": [{"name":"string","qty":1,"cost":number}],
+      "vendors": [{"name":"string","cost":number,"type":"One-time"}]
+    }
+  ]
+}`
+
+      const isPDF = rfpFile.type === 'application/pdf'
+      const b64 = await new Promise((res, rej) => {
+        const reader = new FileReader()
+        reader.onload  = e => res(isPDF ? e.target.result.split(',')[1] : btoa(unescape(encodeURIComponent(e.target.result))))
+        reader.onerror = rej
+        if (isPDF) reader.readAsDataURL(rfpFile)
+        else reader.readAsText(rfpFile)
+      })
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-5',
+          max_tokens: 4000,
+          messages: [{ role:'user', content:[
+            isPDF ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } }
+                  : { type:'text', text:atob(b64) },
+            { type:'text', text:prompt }
+          ]}]
+        })
+      })
+
+      if (!response.ok) { const e = await response.json(); throw new Error(e.error?.message || 'API Error') }
+      const data = await response.json()
+      const raw  = data.content.find(b => b.type==='text')?.text || ''
+      const match = raw.match(/\{[\s\S]*\}/)
+      const result = JSON.parse(match ? match[0] : raw)
+
+      if (result.project_name?.trim()) setPName(result.project_name.trim())
+      if (result.client?.trim())       setPClient(result.client.trim())
+
+      const bands = (result.bands || []).map(b => ({
+        id:          b.id || Date.now().toString() + Math.random(),
+        name:        b.name || 'Untitled Band',
+        description: b.description || '',
+        team:        (b.team || []).map(t => {
+          const found = RC.find(r => r.role === t.role)
+          return found ? { role:found.role, dept:found.dept, daily:found.daily, days:t.days||22, res:t.res||1 } : null
+        }).filter(Boolean),
+        tools:       b.tools || [],
+        vendors:     b.vendors || [],
+      }))
+
+      setPoqBands(bands)
+      setPoqAiStatus({ type:'green', msg:'✅ ' + bands.length + ' bands extracted successfully!' })
+      toast('POQ analysis complete!', 'ok')
+    } catch (err) {
+      setPoqAiStatus({ type:'red', msg:'❌ ' + err.message })
+    }
+    setPoqAnalyzing(false)
+  }
+
+  const calcBand = (band) => {
+    const team    = (band.team    || []).reduce((s,r) => s + r.daily * r.days * (r.res||1), 0)
+    const tools   = (band.tools   || []).reduce((s,t) => s + (t.qty||1) * t.cost, 0)
+    const vendors = (band.vendors || []).reduce((s,v) => s + v.cost, 0)
+    return { team, tools, vendors, subtotal: team + tools + vendors }
+  }
+
+  const calcPOQTotal = () => {
+    const subtotal = poqBands.reduce((s,b) => s + calcBand(b).subtotal, 0)
+    const cat      = autoOHCat(subtotal)
+    const ohPct    = parseFloat(cat)
+    const oh       = ohBase * ohPct
+    const cost     = subtotal + oh
+    const profit   = cost * (pProfit/100)
+    const risk     = cost * (pRisk/100)
+    const sub      = cost + profit + risk
+    const discAmt  = sub * (pDiscount/100)
+    const subFinal = sub - discAmt
+    const vat      = subFinal * 0.15
+    const total    = subFinal + vat
+    return { subtotal, oh, ohPct, cost, profit, risk, sub, discAmt, subFinal, vat, total }
+  }
+
+  const genPOQProposal = () => {
+    if (!pName.trim()) { toast('Enter project name', 'err'); return }
+    if (!poqBands.length) { toast('No bands — analyze contract first', 'err'); return }
+    const n = calcPOQTotal()
+    const date = new Date().toLocaleDateString('en-SA', { year:'numeric', month:'long', day:'numeric' })
+
+    const bandsHTML = poqBands.map((band, idx) => {
+      const b = calcBand(band)
+      const teamRows   = band.team.map(r=>`<tr><td>${r.role}</td><td style="text-align:center">${r.res||1}</td><td style="text-align:center">${r.days}</td><td style="text-align:right">SAR ${fmt(r.daily)}</td><td style="text-align:right"><b>SAR ${fmt(r.daily*r.days*(r.res||1))}</b></td></tr>`).join('') || '<tr><td colspan="5" style="color:#999">None</td></tr>'
+      const toolRows   = band.tools.map(t=>`<tr><td>${t.name}</td><td style="text-align:center">${t.qty||1}</td><td style="text-align:right">SAR ${fmt(t.cost)}</td><td style="text-align:right"><b>SAR ${fmt((t.qty||1)*t.cost)}</b></td></tr>`).join('') || ''
+      const vendRows   = band.vendors.map(v=>`<tr><td>${v.name}</td><td>${v.type||''}</td><td style="text-align:right"><b>SAR ${fmt(v.cost)}</b></td></tr>`).join('') || ''
+      return \`
+      <div style="margin-bottom:28px;border:1px solid #e8ebf0;border-radius:10px;overflow:hidden">
+        <div style="background:linear-gradient(90deg,#5b3fa0,#c44b1e);padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:14px;font-weight:700;color:#fff">\${band.name}</div>
+          <div style="font-size:14px;font-weight:700;color:#fff;font-family:Courier New">SAR \${fmt(b.subtotal)}</div>
+        </div>
+        \${band.description ? \`<div style="padding:10px 16px;font-size:12px;color:#666;background:#fafafa;border-bottom:1px solid #e8ebf0">\${band.description}</div>\` : ''}
+        <div style="padding:12px 16px">
+          <div style="font-size:10px;font-weight:700;color:#5b3fa0;text-transform:uppercase;margin-bottom:8px">Team</div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+            <thead><tr>
+              <th style="text-align:left;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Role</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Res.</th>
+              <th style="text-align:center;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Days</th>
+              <th style="text-align:right;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Rate</th>
+              <th style="text-align:right;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Total</th>
+            </tr></thead>
+            <tbody>\${teamRows}</tbody>
+            <tfoot><tr><td colspan="4" style="padding:6px 8px;font-weight:700;background:#f0f2f7;border-top:1px solid #e0e3ea">Team Subtotal</td><td style="text-align:right;padding:6px 8px;font-weight:700;background:#f0f2f7;border-top:1px solid #e0e3ea">SAR \${fmt(b.team)}</td></tr></tfoot>
+          </table>
+          \${toolRows ? \`<div style="font-size:10px;font-weight:700;color:#5b3fa0;text-transform:uppercase;margin-bottom:6px">Tools & Licenses</div><table style="width:100%;border-collapse:collapse;margin-bottom:12px"><thead><tr><th style="text-align:left;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Tool</th><th style="text-align:center;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Qty</th><th style="text-align:right;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Cost</th><th style="text-align:right;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Total</th></tr></thead><tbody>\${toolRows}</tbody></table>\` : ''}
+          \${vendRows ? \`<div style="font-size:10px;font-weight:700;color:#5b3fa0;text-transform:uppercase;margin-bottom:6px">Vendors</div><table style="width:100%;border-collapse:collapse;margin-bottom:8px"><thead><tr><th style="text-align:left;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Vendor</th><th style="text-align:left;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Type</th><th style="text-align:right;font-size:10px;color:#999;padding:6px 8px;background:#f8f9fc;border-bottom:1px solid #e8ebf0">Amount</th></tr></thead><tbody>\${vendRows}</tbody></table>\` : ''}
+          <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid #e8ebf0">
+            <div style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;padding:8px 16px;border-radius:7px;font-family:Courier New;font-weight:700">Band Total: SAR \${fmt(b.subtotal)}</div>
+          </div>
+        </div>
+      </div>\`
+    }).join('')
+
+    const html = \`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>POQ Proposal — \${pName}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;font-size:13px;color:#1a1f2e;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{max-width:860px;margin:0 auto;padding:44px 44px 80px}.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:2px solid #5b3fa0}.brand img{height:44px}.rtitle{text-align:right}.rtitle h2{font-size:16px;font-weight:700}.rtitle p{font-size:11px;color:#888;margin-top:3px}.hero{background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:12px;padding:18px 22px;margin:18px 0 24px;display:flex;justify-content:space-between;align-items:center}.hl{font-size:13px;font-weight:700;color:#fff;text-transform:uppercase}.hs{font-size:11px;color:rgba(255,255,255,.7);margin-top:3px}.hero-date{font-size:11px;color:rgba(255,255,255,.7);text-align:right}.hero-date span{display:block;font-size:13px;font-weight:600;color:#fff;margin-top:2px}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px}.meta-box{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:9px;padding:11px 13px}.meta-box .lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}.meta-box .val{font-size:14px;font-weight:700}table td{padding:8px 8px;border-bottom:1px solid #f0f2f7;font-size:12px}.total-banner{background:linear-gradient(135deg,#3d2870,#c44b1e);border-radius:12px;overflow:hidden;margin-top:24px;position:relative}.total-banner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:rgba(255,255,255,.4)}.total-inner{padding:22px 26px 22px 32px;display:flex;justify-content:space-between;align-items:center}.total-label{font-size:13px;color:rgba(255,255,255,.8)}.total-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:3px}.total-amount{font-size:28px;font-weight:900;color:#fff;font-family:Courier New}.total-amount span{font-size:14px;font-weight:400;color:rgba(255,255,255,.6);margin-right:6px}.footer{margin-top:36px;border-top:2px solid #5b3fa0;padding-top:14px;display:flex;justify-content:space-between}.footer-txt{font-size:10px;color:#999}.print-bar{position:fixed;bottom:0;left:0;right:0;padding:16px;text-align:center}@media print{.print-bar{display:none!important}@page{margin:10mm}}</style></head><body>
+<div class="page">
+  <div class="header"><div class="brand"><img src="/logo.png" alt="BOUD AI"></div><div class="rtitle"><h2>\${pName}</h2><p>POQ Proposal · \${date}</p></div></div>
+  <div class="hero"><div><div class="hl">Scope of Work — POQ Pricing</div><div class="hs">Confidential · For Client Use Only</div></div><div class="hero-date">Prepared On<span>\${date}</span></div></div>
+  <div class="meta">
+    <div class="meta-box"><div class="lbl">Client</div><div class="val">\${pClient||'—'}</div></div>
+    <div class="meta-box"><div class="lbl">Total Bands</div><div class="val">\${poqBands.length}</div></div>
+    <div class="meta-box"><div class="lbl">Profit Margin</div><div class="val">\${pProfit}%</div></div>
+    <div class="meta-box"><div class="lbl">Risk Buffer</div><div class="val">\${pRisk}%</div></div>
+  </div>
+  <div style="margin-bottom:28px">\${bandsHTML}</div>
+  <div style="background:#f8f9fc;border:1px solid #e8ebf0;border-radius:11px;padding:16px 18px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">Bands Subtotal</span><span style="font-weight:600;font-family:Courier New">SAR \${fmt(n.subtotal)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">Overhead (\${Math.round(n.ohPct*100)}%)</span><span style="font-weight:600;font-family:Courier New">SAR \${fmt(n.oh)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 8px;border-bottom:1px solid #eff1f6;font-size:13px;background:#f0f2f7;border-radius:6px;margin:4px 0"><span style="font-weight:700">Total Cost</span><span style="font-weight:700;font-family:Courier New">SAR \${fmt(n.cost)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">Profit (\${pProfit}%)</span><span style="font-weight:600;font-family:Courier New;color:#16a34a">SAR \${fmt(n.profit)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">Risk Buffer (\${pRisk}%)</span><span style="font-weight:600;font-family:Courier New">SAR \${fmt(n.risk)}</span></div>
+    \${n.discAmt>0?'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">Discount ('+pDiscount+'%)</span><span style="font-weight:600;font-family:Courier New;color:#dc2626">- SAR '+fmt(n.discAmt)+'</span></div>':''}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px"><span style="color:#555">VAT (15%)</span><span style="font-weight:600;font-family:Courier New;color:#888">SAR \${fmt(n.vat)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span style="color:#555">Contract Price (excl. VAT)</span><span style="font-weight:600;font-family:Courier New;color:#d97706">SAR \${fmt(n.subFinal)}</span></div>
+  </div>
+  <div class="total-banner"><div class="total-inner">
+    <div><div class="total-label">Total Contract Price (incl. VAT 15%)</div><div class="total-sub">\${pClient||'—'} · \${pName}</div></div>
+    <div class="total-amount"><span>SAR</span>\${fmt(n.total)}</div>
+  </div></div>
+  <div class="footer"><span class="footer-txt">BOUD AI · Confidential · POQ Proposal</span><span class="footer-txt">\${pName} · \${date}</span></div>
+</div>
+<div class="print-bar"><button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 36px;font-size:14px;font-weight:700;cursor:pointer">Print / Save as PDF</button></div>
+</body></html>\`
+
+    setSavedProps(sp => [{ id:Date.now(), projName:pName, client:pClient, total:Math.round(n.total), discount:pDiscount, status:'draft', savedAt:new Date().toISOString() }, ...sp])
+    const blob = new Blob([html], { type:'text/html' })
+    window.open(URL.createObjectURL(blob), '_blank')
+    toast('POQ Proposal generated!', 'ok')
+  }
+
   const genProposal = () => {
     if (!pName.trim()) { toast('Enter project name', 'err'); return }
     const n = calc()
@@ -311,8 +506,15 @@ Respond ONLY with valid JSON:
             <div className="fade-in">
               <div style={S.ph}>
                 <div style={S.phT}>🧮 Create Proposal</div>
-                <div style={S.phS}>Build your team, tools, and generate a proposal</div>
+                <div style={{ display:'flex', gap:0, marginTop:14, borderBottom:'1px solid var(--bd)' }}>
+                  {[['simple','📝 Simple'],['poq','📋 POQ']].map(([id,label])=>(
+                    <button key={id} onClick={()=>setPricingTab(id)} style={{ padding:'8px 20px', fontSize:13, fontWeight:600, cursor:'pointer', border:'none', borderBottom:pricingTab===id?'2px solid var(--purple)':'2px solid transparent', background:'transparent', color:pricingTab===id?'#c4b5fd':'var(--t2)', transition:'all .15s', marginBottom:-1 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {pricingTab === 'simple' && (<>
               <div style={{ background:'rgba(245,158,11,.07)', border:'1px solid rgba(245,158,11,.2)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--gold)', marginBottom:14 }}>
                 💡 Overhead Base: <b>SAR {fmt(ohBase)}</b> · OH = OH Base × Category% · VAT 15%
               </div>
@@ -516,6 +718,22 @@ Respond ONLY with valid JSON:
                   </div>
                 </div>
               </div>
+              </>)}
+
+              {pricingTab === 'poq' && (
+                <POQView
+                  apiKey={apiKey} rfpFile={rfpFile} setRfpFile={setRfpFile}
+                  poqBands={poqBands} setPoqBands={setPoqBands}
+                  poqAnalyzing={poqAnalyzing} poqAiStatus={poqAiStatus}
+                  analyzePOQ={analyzePOQ} calcBand={calcBand} calcPOQTotal={calcPOQTotal}
+                  genPOQProposal={genPOQProposal}
+                  pName={pName} pClient={pClient} pProfit={pProfit} pRisk={pRisk} pDiscount={pDiscount}
+                  editingBand={editingBand} setEditingBand={setEditingBand}
+                  ohBase={ohBase} fmt={fmt}
+                  setModal={setModal} rfpStatus={rfpStatus} setRfpStatus={setRfpStatus}
+                  rfpAnalyzing={rfpAnalyzing} analyzeRFP={analyzeRFP} setApiKey={setApiKey}
+                />
+              )}
             </div>
           )}
         </div>
@@ -1127,6 +1345,239 @@ function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow })
             })}
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════
+// POQ VIEW COMPONENT
+// ════════════════════════════════════════
+function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, pClient, pProfit, pRisk, pDiscount, editingBand, setEditingBand, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
+
+  const updBandTeam    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: b.team.map((r,j) => j!==ti ? r : {...r,[field]:val})}))
+  const updBandTool    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, tools: b.tools.map((t,j) => j!==ti ? t : {...t,[field]:val})}))
+  const updBandVendor  = (bi, vi, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, vendors: b.vendors.map((v,j) => j!==vi ? v : {...v,[field]:val})}))
+  const delBandTeam    = (bi, ti)             => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: b.team.filter((_,j) => j!==ti)}))
+  const delBandTool    = (bi, ti)             => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, tools: b.tools.filter((_,j) => j!==ti)}))
+  const delBandVendor  = (bi, vi)             => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, vendors: b.vendors.filter((_,j) => j!==vi)}))
+  const addBandTeam    = (bi)                 => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: [...b.team, {role:'Specialist - BA',dept:'Business Analyst',daily:818,days:22,res:1}]}))
+  const addBandTool    = (bi)                 => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, tools: [...b.tools, {name:'New Tool',qty:1,cost:0}]}))
+  const addBandVendor  = (bi)                 => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, vendors: [...b.vendors, {name:'New Vendor',cost:0,type:'One-time'}]}))
+  const addBand        = ()                   => setPoqBands(bs => [...bs, {id:Date.now().toString(),name:'New Band',description:'',team:[],tools:[],vendors:[]}])
+  const delBand        = (bi)                 => { if(confirm('Delete band?')) setPoqBands(bs => bs.filter((_,i) => i!==bi)) }
+
+  const n = calcPOQTotal()
+
+  return (
+    <div>
+      <div style={{ background:'rgba(96,165,250,.07)', border:'1px solid rgba(96,165,250,.2)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--blue)', marginBottom:14 }}>
+        📋 POQ Mode — AI reads your contract and prices each deliverable separately
+      </div>
+
+      {/* AI ANALYZE BAR */}
+      <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:11, padding:16, marginBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+          <div>
+            <div style={{ fontWeight:600, fontSize:14 }}>🤖 AI Extract Bands from Contract</div>
+            <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>Upload your contract/RFP and AI will extract all deliverables with pricing</div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            {rfpFile && <div style={{ fontSize:12, color:'var(--green)', alignSelf:'center' }}>📄 {rfpFile.name}</div>}
+            <button style={{ background:'rgba(245,158,11,.1)', color:'var(--gold)', border:'1px solid rgba(245,158,11,.25)', padding:'7px 14px', borderRadius:8, fontSize:13, fontWeight:500, cursor:'pointer' }}
+              onClick={() => { setRfpStatus(null); setModal('rfp') }}>
+              📎 Upload Contract
+            </button>
+            <button style={{ background: poqAnalyzing ? 'rgba(91,63,160,.1)' : 'var(--grad)', color:'#fff', border:'none', padding:'7px 16px', borderRadius:8, fontSize:13, fontWeight:600, cursor: poqAnalyzing ? 'not-allowed' : 'pointer', opacity: poqAnalyzing ? .7 : 1 }}
+              onClick={analyzePOQ} disabled={poqAnalyzing}>
+              {poqAnalyzing ? '⏳ Analyzing...' : '🤖 Extract Bands'}
+            </button>
+          </div>
+        </div>
+        {poqAiStatus && (
+          <div style={{ marginTop:12, background:`rgba(${poqAiStatus.type==='green'?'34,197,94':poqAiStatus.type==='red'?'239,68,68':'96,165,250'},.07)`, border:`1px solid rgba(${poqAiStatus.type==='green'?'34,197,94':poqAiStatus.type==='red'?'239,68,68':'96,165,250'},.2)`, borderRadius:8, padding:'10px 14px', fontSize:13, color:`var(--${poqAiStatus.type==='green'?'green':poqAiStatus.type==='red'?'red':'blue'})` }}>
+            {poqAiStatus.msg}
+          </div>
+        )}
+      </div>
+
+      {/* BANDS */}
+      {poqBands.length === 0 && (
+        <div style={{ textAlign:'center', padding:40, color:'var(--t2)', background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:11 }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
+          <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No bands yet</div>
+          <div style={{ fontSize:12, marginBottom:16 }}>Upload a contract and click "Extract Bands", or add manually</div>
+          <button style={{ background:'var(--grad)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer' }} onClick={addBand}>+ Add Band Manually</button>
+        </div>
+      )}
+
+      {poqBands.map((band, bi) => {
+        const b = calcBand(band)
+        const isEditing = editingBand === bi
+        return (
+          <div key={band.id} style={{ background:'var(--s1)', border:`1px solid ${isEditing?'var(--purple)':'var(--bd)'}`, borderRadius:11, marginBottom:12, overflow:'hidden', transition:'border-color .15s' }}>
+            {/* BAND HEADER */}
+            <div style={{ background:'var(--s2)', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, flex:1 }}>
+                <div style={{ background:'var(--grad)', color:'#fff', borderRadius:6, padding:'2px 10px', fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>#{bi+1}</div>
+                {isEditing
+                  ? <input style={{ background:'var(--bg)', border:'1px solid var(--purple)', borderRadius:7, padding:'5px 10px', color:'var(--text)', fontSize:14, fontWeight:700, flex:1, outline:'none' }}
+                      value={band.name} onChange={e => setPoqBands(bs => bs.map((x,i)=>i!==bi?x:{...x,name:e.target.value}))} />
+                  : <div style={{ fontSize:14, fontWeight:700 }}>{band.name}</div>
+                }
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ fontFamily:"'JetBrains Mono',monospace", fontWeight:700, color:'var(--gold)', fontSize:15 }}>SAR {fmt(b.subtotal)}</div>
+                <button style={{ background: isEditing?'rgba(34,197,94,.12)':'rgba(91,63,160,.12)', color: isEditing?'var(--green)':'#c4b5fd', border:`1px solid ${isEditing?'rgba(34,197,94,.25)':'rgba(91,63,160,.3)'}`, padding:'4px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer' }}
+                  onClick={() => setEditingBand(isEditing ? null : bi)}>
+                  {isEditing ? '✓ Done' : '✏️ Edit'}
+                </button>
+                <button style={{ background:'rgba(239,68,68,.1)', color:'var(--red)', border:'1px solid rgba(239,68,68,.2)', padding:'4px 10px', borderRadius:7, fontSize:12, cursor:'pointer' }} onClick={() => delBand(bi)}>🗑</button>
+              </div>
+            </div>
+
+            {/* BAND BODY */}
+            <div style={{ padding:16 }}>
+              {isEditing && (
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em', display:'block', marginBottom:4 }}>Description</label>
+                  <textarea style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'7px 10px', color:'var(--text)', fontSize:13, width:'100%', outline:'none', resize:'vertical', minHeight:60, lineHeight:1.5 }}
+                    value={band.description} onChange={e => setPoqBands(bs => bs.map((x,i)=>i!==bi?x:{...x,description:e.target.value}))} placeholder="Band description..." />
+                </div>
+              )}
+              {!isEditing && band.description && <div style={{ fontSize:12, color:'var(--t2)', marginBottom:12, lineHeight:1.5 }}>{band.description}</div>}
+
+              {/* TEAM */}
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--purple)', textTransform:'uppercase', letterSpacing:'.05em' }}>👥 Team — SAR {fmt(b.team)}</div>
+                  {isEditing && <button style={{ background:'rgba(91,63,160,.1)', color:'#c4b5fd', border:'1px solid rgba(91,63,160,.2)', padding:'3px 10px', borderRadius:6, fontSize:11, cursor:'pointer' }} onClick={()=>addBandTeam(bi)}>+ Add</button>}
+                </div>
+                {band.team.length === 0 && <div style={{ fontSize:12, color:'var(--t3)', padding:'6px 0' }}>No team members</div>}
+                {band.team.map((r,ti) => (
+                  <div key={ti} style={{ display:'grid', gridTemplateColumns: isEditing?'2fr 55px 55px 80px 28px':'2fr 55px 55px 80px', gap:6, alignItems:'center', padding:'5px 0', borderBottom:'1px solid var(--bd)' }}>
+                    <div><div style={{ fontSize:12, fontWeight:500 }}>{r.role}</div><div style={{ fontSize:10, color:'var(--t2)' }}>{r.dept}</div></div>
+                    {isEditing
+                      ? <>
+                          <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 5px', color:'var(--text)', fontSize:11, textAlign:'right', width:'100%', outline:'none' }} type="number" value={r.res||1} min={1} onChange={e=>updBandTeam(bi,ti,'res',+e.target.value)} />
+                          <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 5px', color:'var(--text)', fontSize:11, textAlign:'right', width:'100%', outline:'none' }} type="number" value={r.days} min={1} onChange={e=>updBandTeam(bi,ti,'days',+e.target.value)} />
+                          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--gold)', textAlign:'right' }}>SAR {fmt(r.daily*r.days*(r.res||1))}</div>
+                          <button style={{ background:'rgba(239,68,68,.1)', color:'var(--red)', border:'none', borderRadius:5, cursor:'pointer', fontSize:11, padding:'2px 5px' }} onClick={()=>delBandTeam(bi,ti)}>✕</button>
+                        </>
+                      : <>
+                          <div style={{ fontSize:11, color:'var(--t2)', textAlign:'right' }}>{r.res||1} res</div>
+                          <div style={{ fontSize:11, color:'var(--t2)', textAlign:'right' }}>{r.days}d</div>
+                          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--gold)', textAlign:'right' }}>SAR {fmt(r.daily*r.days*(r.res||1))}</div>
+                        </>
+                    }
+                  </div>
+                ))}
+              </div>
+
+              {/* TOOLS */}
+              {(band.tools.length > 0 || isEditing) && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'var(--teal)', textTransform:'uppercase', letterSpacing:'.05em' }}>🔧 Tools — SAR {fmt(b.tools)}</div>
+                    {isEditing && <button style={{ background:'rgba(20,184,166,.1)', color:'var(--teal)', border:'1px solid rgba(20,184,166,.2)', padding:'3px 10px', borderRadius:6, fontSize:11, cursor:'pointer' }} onClick={()=>addBandTool(bi)}>+ Add</button>}
+                  </div>
+                  {band.tools.map((t,ti) => (
+                    <div key={ti} style={{ display:'grid', gridTemplateColumns:isEditing?'2fr 55px 80px 28px':'2fr 55px 80px', gap:6, alignItems:'center', padding:'5px 0', borderBottom:'1px solid var(--bd)' }}>
+                      {isEditing ? <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 7px', color:'var(--text)', fontSize:12, width:'100%', outline:'none' }} value={t.name} onChange={e=>updBandTool(bi,ti,'name',e.target.value)} /> : <div style={{ fontSize:12 }}>{t.name}</div>}
+                      {isEditing ? <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 5px', color:'var(--text)', fontSize:11, textAlign:'right', width:'100%', outline:'none' }} type="number" value={t.qty||1} min={1} onChange={e=>updBandTool(bi,ti,'qty',+e.target.value)} /> : <div style={{ fontSize:11, color:'var(--t2)', textAlign:'right' }}>{t.qty||1}x</div>}
+                      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--gold)', textAlign:'right' }}>SAR {fmt((t.qty||1)*t.cost)}</div>
+                      {isEditing && <button style={{ background:'rgba(239,68,68,.1)', color:'var(--red)', border:'none', borderRadius:5, cursor:'pointer', fontSize:11, padding:'2px 5px' }} onClick={()=>delBandTool(bi,ti)}>✕</button>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* VENDORS */}
+              {(band.vendors.length > 0 || isEditing) && (
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'var(--gold)', textTransform:'uppercase', letterSpacing:'.05em' }}>🏭 Vendors — SAR {fmt(b.vendors)}</div>
+                    {isEditing && <button style={{ background:'rgba(245,158,11,.1)', color:'var(--gold)', border:'1px solid rgba(245,158,11,.2)', padding:'3px 10px', borderRadius:6, fontSize:11, cursor:'pointer' }} onClick={()=>addBandVendor(bi)}>+ Add</button>}
+                  </div>
+                  {band.vendors.map((v,vi) => (
+                    <div key={vi} style={{ display:'grid', gridTemplateColumns:isEditing?'2fr 80px 80px 28px':'2fr 80px 80px', gap:6, alignItems:'center', padding:'5px 0', borderBottom:'1px solid var(--bd)' }}>
+                      {isEditing ? <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 7px', color:'var(--text)', fontSize:12, width:'100%', outline:'none' }} value={v.name} onChange={e=>updBandVendor(bi,vi,'name',e.target.value)} /> : <div style={{ fontSize:12 }}>{v.name}</div>}
+                      <div style={{ fontSize:11, color:'var(--t2)' }}>{v.type}</div>
+                      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--gold)', textAlign:'right' }}>SAR {fmt(v.cost)}</div>
+                      {isEditing && <button style={{ background:'rgba(239,68,68,.1)', color:'var(--red)', border:'none', borderRadius:5, cursor:'pointer', fontSize:11, padding:'2px 5px' }} onClick={()=>delBandVendor(bi,vi)}>✕</button>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {poqBands.length > 0 && (
+        <>
+          <button style={{ background:'rgba(91,63,160,.1)', color:'#c4b5fd', border:'1px solid rgba(91,63,160,.2)', padding:'8px 16px', borderRadius:8, fontSize:13, fontWeight:500, cursor:'pointer', marginBottom:14, width:'100%' }} onClick={addBand}>+ Add Band</button>
+
+          {/* TOTAL SUMMARY */}
+          <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:11, padding:16, marginBottom:14 }}>
+            <div style={{ fontWeight:600, fontSize:14, marginBottom:12 }}>💰 POQ Total Summary</div>
+            <div style={{ background:'var(--s2)', borderRadius:9, padding:14 }}>
+              {poqBands.map((band,bi) => {
+                const b = calcBand(band)
+                return (
+                  <div key={bi} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bd)', fontSize:13 }}>
+                    <span style={{ color:'var(--t2)' }}>{band.name}</span>
+                    <span style={{ fontFamily:"'JetBrains Mono',monospace" }}>SAR {fmt(b.subtotal)}</span>
+                  </div>
+                )
+              })}
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid var(--bd)', fontSize:13, marginTop:4 }}>
+                <span style={{ color:'var(--t2)', fontWeight:600 }}>Bands Subtotal</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>SAR {fmt(n.subtotal)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bd)', fontSize:13 }}>
+                <span style={{ color:'var(--t2)' }}>Overhead ({Math.round(n.ohPct*100)}%)</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace" }}>SAR {fmt(n.oh)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'6px 8px', borderBottom:'1px solid var(--bd)', fontSize:13, background:'rgba(96,165,250,.07)', borderRadius:7, margin:'4px 0' }}>
+                <span style={{ color:'var(--blue)', fontWeight:700 }}>Total Cost</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", color:'var(--blue)', fontWeight:700 }}>SAR {fmt(n.cost)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bd)', fontSize:13 }}>
+                <span style={{ color:'var(--t2)' }}>Profit ({pProfit}%)</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", color:'var(--green)' }}>SAR {fmt(n.profit)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bd)', fontSize:13 }}>
+                <span style={{ color:'var(--t2)' }}>Risk Buffer ({pRisk}%)</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace" }}>SAR {fmt(n.risk)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bd)', fontSize:13 }}>
+                <span style={{ color:'var(--t2)' }}>VAT (15%)</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", color:'var(--t2)' }}>SAR {fmt(n.vat)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', fontSize:13, borderBottom:'none' }}>
+                <span style={{ color:'var(--t2)' }}>Contract Price (excl. VAT)</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", color:'var(--gold)' }}>SAR {fmt(n.subFinal)}</span>
+              </div>
+            </div>
+            <div style={{ background:'linear-gradient(135deg,#3d2870,#c44b1e)', borderRadius:10, overflow:'hidden', marginTop:14, position:'relative' }}>
+              <div style={{ position:'absolute', left:0, top:0, bottom:0, width:5, background:'rgba(255,255,255,.35)' }} />
+              <div style={{ padding:'18px 22px 18px 30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,.75)', fontWeight:500 }}>Total Contract Price (incl. VAT 15%)</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,.5)', marginTop:3 }}>{pClient||'—'} · {pName||'Untitled'} · {poqBands.length} bands</div>
+                </div>
+                <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:26, fontWeight:900, color:'#fff' }}>
+                  <span style={{ fontSize:13, fontWeight:400, color:'rgba(255,255,255,.55)', marginRight:4 }}>SAR</span>
+                  {fmt(n.total)}
+                </div>
+              </div>
+            </div>
+            <button style={{ background:'var(--grad)', color:'#fff', border:'none', padding:'10px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', marginTop:12, width:'100%' }} onClick={genPOQProposal}>
+              📄 Generate POQ Proposal
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
