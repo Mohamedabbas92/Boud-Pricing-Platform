@@ -51,7 +51,6 @@ export default function Home() {
   const [poqBands,     setPoqBands]     = useState([])
   const [poqAnalyzing, setPoqAnalyzing] = useState(false)
   const [poqAiStatus,  setPoqAiStatus]  = useState(null)
-  const [editingBand,  setEditingBand]  = useState(null)
   const [toolQty,      setToolQty]      = useState(1)
   const [toolCost,     setToolCost]     = useState('')
   const [vendName,     setVendName]     = useState('')
@@ -542,7 +541,6 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
                   pProfit={pProfit} setPProfit={setPProfit}
                   pRisk={pRisk} setPRisk={setPRisk}
                   pDiscount={pDiscount} setPDiscount={setPDiscount}
-                  editingBand={editingBand} setEditingBand={setEditingBand}
                   ohBase={ohBase} fmt={fmt}
                   setModal={setModal} rfpStatus={rfpStatus} setRfpStatus={setRfpStatus}
                   rfpAnalyzing={rfpAnalyzing} analyzeRFP={analyzeRFP} setApiKey={setApiKey}
@@ -1191,7 +1189,8 @@ function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow })
 // ════════════════════════════════════════
 // POQ VIEW COMPONENT
 // ════════════════════════════════════════
-function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, setPName, pClient, setPClient, pProfit, setPProfit, pRisk, setPRisk, pDiscount, setPDiscount, editingBand, setEditingBand, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
+function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, setPName, pClient, setPClient, pProfit, setPProfit, pRisk, setPRisk, pDiscount, setPDiscount, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
+  const [editingBand, setEditingBand] = useState(null)
 
   const updBandTeam    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: b.team.map((r,j) => j!==ti ? r : {...r,[field]:val})}))
   const updBandTool    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, tools: b.tools.map((t,j) => j!==ti ? t : {...t,[field]:val})}))
