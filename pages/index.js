@@ -408,7 +408,7 @@ Respond ONLY with valid JSON:
 <div class="print-bar"><button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 36px;font-size:14px;font-weight:700;cursor:pointer">Print / Save as PDF</button></div>
 </body></html>`
 
-    setSavedProps(sp => [{ id:Date.now(), projName:pName, client:pClient, total:Math.round(n.total), discount:pDiscount, status:'draft', savedAt:new Date().toISOString() }, ...sp])
+    setSavedProps(sp => [{ id:Date.now(), projName:pName, client:pClient, total:Math.round(n.total), discount:pDiscount, status:'draft', savedAt:new Date().toISOString(), html }, ...sp])
     const blob = new Blob([html], { type:'text/html' })
     window.open(URL.createObjectURL(blob), '_blank')
     toast('POQ Proposal generated!', 'ok')
@@ -423,7 +423,7 @@ Respond ONLY with valid JSON:
     const toolRows = pTools.map(t=>`<tr><td>${t.name}</td><td style="text-align:center">${t.qty||1}</td><td style="text-align:right">SAR ${fmt(t.cost)}</td><td style="text-align:right"><b>SAR ${fmt((t.qty||1)*t.cost)}</b></td></tr>`).join('')||'<tr><td colspan="4" style="color:#999">None</td></tr>'
     const vendRows = pVendors.map(v=>`<tr><td>${v.name}</td><td>${v.type}</td><td style="text-align:right"><b>SAR ${fmt(v.cost)}</b></td></tr>`).join('')||'<tr><td colspan="3" style="color:#999">None</td></tr>'
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Proposal — ${pName}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;font-size:13px;color:#1a1f2e;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{max-width:820px;margin:0 auto;padding:44px 44px 80px}.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:2px solid #5b3fa0}.brand img{height:44px}.rtitle{text-align:right}.rtitle h2{font-size:16px;font-weight:700}.rtitle p{font-size:11px;color:#888;margin-top:3px}.hero{background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:12px;padding:18px 22px;margin:18px 0 24px;display:flex;justify-content:space-between;align-items:center}.hl{font-size:13px;font-weight:700;color:#fff;text-transform:uppercase}.hs{font-size:11px;color:rgba(255,255,255,.7);margin-top:3px}.hero-date{font-size:11px;color:rgba(255,255,255,.7);text-align:right}.hero-date span{display:block;font-size:13px;font-weight:600;color:#fff;margin-top:2px}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px}.meta-box{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:9px;padding:11px 13px}.meta-box .lbl{font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}.meta-box .val{font-size:14px;font-weight:700}.section{margin-bottom:24px}.sec-title{font-size:10px;font-weight:800;color:#fff;text-transform:uppercase;background:linear-gradient(90deg,#5b3fa0,#c44b1e);display:inline-block;padding:4px 12px;border-radius:5px;margin-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;padding:8px 10px;background:#f8f9fc;border-bottom:2px solid #e8ebf0}td{padding:8px 10px;border-bottom:1px solid #f0f2f7;font-size:12.5px}tr:last-child td{border-bottom:none}tfoot td{font-weight:700;background:#f0f2f7;border-top:2px solid #e0e3ea}.summary{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:11px;padding:16px 18px}.sum-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eff1f6;font-size:13px}.sum-row.hl{background:#f0f2f7;padding:8px 10px;border-radius:7px;margin:4px 0;border-bottom:none}.sum-lbl{color:#555}.sum-val{font-weight:600;font-family:Courier New,monospace}.c-green{color:#16a34a}.c-gold{color:#d97706}.c-muted{color:#888}.c-red{color:#dc2626}.total-banner{background:linear-gradient(135deg,#3d2870,#c44b1e);border-radius:12px;overflow:hidden;margin-top:18px;position:relative}.total-banner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:rgba(255,255,255,.4)}.total-inner{padding:22px 26px 22px 32px;display:flex;justify-content:space-between;align-items:center}.total-label{font-size:13px;color:rgba(255,255,255,.8)}.total-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:3px}.total-amount{font-size:28px;font-weight:900;color:#fff;font-family:Courier New,monospace}.total-amount span{font-size:14px;font-weight:400;color:rgba(255,255,255,.6);margin-right:6px}.footer{margin-top:36px;border-top:2px solid #5b3fa0;padding-top:14px;display:flex;justify-content:space-between}.footer-txt{font-size:10px;color:#999}.watermark{text-align:center;font-size:9px;color:#ccc;margin-top:8px}.print-bar{position:fixed;bottom:0;left:0;right:0;padding:16px;text-align:center}@media print{.print-bar{display:none!important}.page{padding:22px 44px}@page{margin:10mm}}</style></head><body><div class="page"><div class="header"><div class="brand"><img src="/logo.png" alt="BOUD AI"></div><div class="rtitle"><h2>${pName}</h2><p>Commercial Proposal · ${date}</p></div></div><div class="hero"><div><div class="hl">Commercial Proposal</div><div class="hs">Confidential · For Client Use Only</div></div><div class="hero-date">Prepared On<span>${date}</span></div></div><div class="meta"><div class="meta-box"><div class="lbl">Client</div><div class="val">${pClient||'—'}</div></div><div class="meta-box"><div class="lbl">OH Category</div><div class="val">${ohCat}</div></div><div class="meta-box"><div class="lbl">Profit Margin</div><div class="val">${pProfit}%</div></div><div class="meta-box"><div class="lbl">Risk Buffer</div><div class="val">${pRisk}%</div></div></div><div class="section"><div class="sec-title">Team Roster</div><table><thead><tr><th>Role</th><th>Dept</th><th style="text-align:center">Res.</th><th style="text-align:center">Days</th><th style="text-align:right">Daily Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${teamRows}</tbody>${roster.length?`<tfoot><tr><td colspan="5">Team Total</td><td style="text-align:right">SAR ${fmt(n.team)}</td></tr></tfoot>`:''}</table></div><div class="section"><div class="sec-title">Tools &amp; Licenses</div><table><thead><tr><th>Tool</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${toolRows}</tbody>${pTools.length?`<tfoot><tr><td colspan="3">Tools Total</td><td style="text-align:right">SAR ${fmt(n.toolsTotal)}</td></tr></tfoot>`:''}</table></div><div class="section"><div class="sec-title">Vendor Expenses</div><table><thead><tr><th>Vendor</th><th>Type</th><th style="text-align:right">Amount</th></tr></thead><tbody>${vendRows}</tbody>${pVendors.length?`<tfoot><tr><td colspan="2">Vendors Total</td><td style="text-align:right">SAR ${fmt(n.vendTotal)}</td></tr></tfoot>`:''}</table></div><div class="section"><div class="sec-title">Pricing Breakdown</div><div class="summary"><div class="sum-row"><span class="sum-lbl">Team Cost</span><span class="sum-val">SAR ${fmt(n.team)}</span></div><div class="sum-row"><span class="sum-lbl">Tools &amp; Licenses</span><span class="sum-val">SAR ${fmt(n.toolsTotal)}</span></div><div class="sum-row"><span class="sum-lbl">Vendor Expenses</span><span class="sum-val">SAR ${fmt(n.vendTotal)}</span></div><div class="sum-row"><span class="sum-lbl">Overhead (${Math.round(n.ohPct*100)}%)</span><span class="sum-val">SAR ${fmt(n.oh)}</span></div><div class="sum-row hl"><span class="sum-lbl" style="font-weight:700">Total Cost</span><span class="sum-val" style="font-weight:700">SAR ${fmt(n.cost)}</span></div><div class="sum-row"><span class="sum-lbl">Profit (${pProfit}%)</span><span class="sum-val c-green">SAR ${fmt(n.profit)}</span></div><div class="sum-row"><span class="sum-lbl">Risk Buffer (${pRisk}%)</span><span class="sum-val">SAR ${fmt(n.risk)}</span></div>${n.discAmt>0?`<div class="sum-row"><span class="sum-lbl">Discount (${pDiscount}%)</span><span class="sum-val c-red">- SAR ${fmt(n.discAmt)}</span></div>`:''}<div class="sum-row"><span class="sum-lbl">VAT (15%)</span><span class="sum-val c-muted">SAR ${fmt(n.vat)}</span></div><div class="sum-row" style="border-bottom:none;padding-top:8px"><span class="sum-lbl">Contract Price (excl. VAT)</span><span class="sum-val c-gold">SAR ${fmt(n.subFinal)}</span></div></div><div class="total-banner"><div class="total-inner"><div><div class="total-label">Total Contract Price (incl. VAT 15%)</div><div class="total-sub">${pClient||'—'} · ${pName}</div></div><div class="total-amount"><span>SAR</span>${fmt(n.total)}</div></div></div></div><div class="footer"><span class="footer-txt">BOUD AI · Confidential</span><span class="footer-txt">${pName} · ${date}</span></div><div class="watermark">For internal use and client presentation only.</div></div><div class="print-bar"><button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 36px;font-size:14px;font-weight:700;cursor:pointer">Print / Save as PDF</button></div></body></html>`
-    setSavedProps(sp => [{ id:Date.now(), projName:pName, client:pClient, total:Math.round(n.total), discount:pDiscount, status:'draft', savedAt:new Date().toISOString() }, ...sp])
+    setSavedProps(sp => [{ id:Date.now(), projName:pName, client:pClient, total:Math.round(n.total), discount:pDiscount, status:'draft', savedAt:new Date().toISOString(), html }, ...sp])
     const blob = new Blob([html], { type:'text/html' })
     window.open(URL.createObjectURL(blob), '_blank')
     toast('Proposal generated!', 'ok')
@@ -461,7 +461,7 @@ Respond ONLY with valid JSON:
   ]
 
   const views = {
-    projects:  <ViewProjects  projects={projects}   setProjects={setProjects}   setPName={setPName}   setPClient={setPClient}   setView={setView} />,
+    projects:  <ViewProjects  projects={projects}   setProjects={setProjects}   setPName={setPName}   setPClient={setPClient}   setView={setView} saveNow={saveNow} setRoster={setRoster} setPTools={setPTools} setPVendors={setPVendors} setPDiscount={setPDiscount} />,
     vendors:   <ViewVendorsDB vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendSearch={vendSearch} setVendSearch={setVendSearch} />,
     tools:     <ViewToolsDB   toolsDB={toolsDB}     setToolsDB={setToolsDB}     toolSearch={toolSearch} setToolSearch={setToolSearch} />,
     proposals: <ViewProposals savedProps={savedProps} setSavedProps={setSavedProps} propFilter={propFilter} setPropFilter={setPropFilter} />,
@@ -804,7 +804,7 @@ Respond ONLY with valid JSON:
   )
 }
 
-function ViewProjects({ projects, setProjects, setPName, setPClient, setView }) {
+function ViewProjects({ projects, setProjects, setPName, setPClient, setView, saveNow, setRoster, setPTools, setPVendors, setPDiscount }) {
   const [modal, setModal] = useState(null)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({})
@@ -826,11 +826,12 @@ function ViewProjects({ projects, setProjects, setPName, setPClient, setView }) 
     const proj = { ...form, id: editId || Date.now().toString(), files, createdAt: editId ? (projects.find(p=>p.id===editId)?.createdAt || new Date().toISOString()) : new Date().toISOString() }
     if (editId) setProjects(ps => ps.map(p => p.id===editId ? proj : p))
     else        setProjects(ps => [proj, ...ps])
+    setTimeout(() => saveNow(), 100)
     setModal(null)
     toast(editId ? 'Updated' : 'Project Created', 'ok')
   }
 
-  const del = (id) => { if (!confirm('Delete project?')) return; setProjects(ps=>ps.filter(p=>p.id!==id)); toast('Deleted') }
+  const del = (id) => { if (!confirm('Delete project?')) return; setProjects(ps=>ps.filter(p=>p.id!==id)); setTimeout(() => saveNow(), 100); toast('Deleted') }
   const fileIcon = t => !t?'📄':t.includes('pdf')?'📕':t.includes('sheet')||t.includes('csv')?'📊':t.includes('word')?'📝':t.includes('image')?'🖼️':'📄'
 
   return (
@@ -853,7 +854,11 @@ function ViewProjects({ projects, setProjects, setPName, setPClient, setView }) 
               <div style={{ fontSize:12, color:'var(--t2)', marginTop:3 }}>👤 {p.client}{p.contact?' · '+p.contact:''}</div>
             </div>
             <div style={{ display:'flex', gap:6 }}>
-              <button style={{ ...C.btn('success'), padding:'4px 10px', fontSize:12 }} onClick={()=>{ setPName(p.name); setPClient(p.client); setView('pricing'); toast(`Loaded: ${p.name}`,'ok') }}>🧮 Price</button>
+              <button style={{ ...C.btn('success'), padding:'4px 10px', fontSize:12 }} onClick={()=>{ 
+                setPName(p.name); setPClient(p.client);
+                setRoster([]); setPTools([]); setPVendors([]); setPDiscount(0);
+                setView('pricing'); toast('Loaded: ' + p.name, 'ok');
+              }}>🧮 Price</button>
               <button style={{ ...C.btn('g'), padding:'4px 10px', fontSize:12 }} onClick={()=>openEdit(p)}>✏️</button>
               <button style={{ ...C.btn('danger'), padding:'4px 10px', fontSize:12 }} onClick={()=>del(p.id)}>🗑</button>
             </div>
@@ -1105,7 +1110,10 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter })
               {Object.entries(PROP_STATUS).map(([k,v])=>(
                 <button key={k} style={{ ...C.btn('g'), padding:'3px 9px', fontSize:11, ...((p.status||'draft')===k?{background:'var(--grad)',color:'#fff',border:'none'}:{}) }} onClick={()=>updStatus(p.id,k)}>{v.icon} {v.label}</button>
               ))}
-              <button style={{ ...C.btn('danger'), padding:'3px 9px', fontSize:11, marginLeft:'auto' }} onClick={()=>del(p.id)}>🗑</button>
+              <div style={{ marginLeft:'auto', display:'flex', gap:5 }}>
+                {p.html && <button style={{ ...C.btn('success'), padding:'3px 9px', fontSize:11 }} onClick={()=>{ const blob=new Blob([p.html],{type:'text/html'}); window.open(URL.createObjectURL(blob),'_blank') }}>👁️ View</button>}
+                <button style={{ ...C.btn('danger'), padding:'3px 9px', fontSize:11 }} onClick={()=>del(p.id)}>🗑</button>
+              </div>
             </div>
           </div>
         </div>
