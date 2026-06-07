@@ -543,7 +543,6 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
                   setModal={setModal} rfpStatus={rfpStatus} setRfpStatus={setRfpStatus}
                   rfpAnalyzing={rfpAnalyzing} analyzeRFP={analyzeRFP} setApiKey={setApiKey}
                 />
-              )}
             </div>
           )}
         </div>
