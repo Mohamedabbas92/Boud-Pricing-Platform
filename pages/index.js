@@ -537,7 +537,11 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
                   poqAnalyzing={poqAnalyzing} poqAiStatus={poqAiStatus}
                   analyzePOQ={analyzePOQ} calcBand={calcBand} calcPOQTotal={calcPOQTotal}
                   genPOQProposal={genPOQProposal}
-                  pName={pName} pClient={pClient} pProfit={pProfit} pRisk={pRisk} pDiscount={pDiscount}
+                  pName={pName} setPName={setPName}
+                  pClient={pClient} setPClient={setPClient}
+                  pProfit={pProfit} setPProfit={setPProfit}
+                  pRisk={pRisk} setPRisk={setPRisk}
+                  pDiscount={pDiscount} setPDiscount={setPDiscount}
                   editingBand={editingBand} setEditingBand={setEditingBand}
                   ohBase={ohBase} fmt={fmt}
                   setModal={setModal} rfpStatus={rfpStatus} setRfpStatus={setRfpStatus}
@@ -1187,7 +1191,7 @@ function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow })
 // ════════════════════════════════════════
 // POQ VIEW COMPONENT
 // ════════════════════════════════════════
-function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, pClient, pProfit, pRisk, pDiscount, editingBand, setEditingBand, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
+function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, setPName, pClient, setPClient, pProfit, setPProfit, pRisk, setPRisk, pDiscount, setPDiscount, editingBand, setEditingBand, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
 
   const updBandTeam    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: b.team.map((r,j) => j!==ti ? r : {...r,[field]:val})}))
   const updBandTool    = (bi, ti, field, val) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, tools: b.tools.map((t,j) => j!==ti ? t : {...t,[field]:val})}))
@@ -1205,8 +1209,40 @@ function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyz
 
   return (
     <div>
-      <div style={{ background:'rgba(96,165,250,.07)', border:'1px solid rgba(96,165,250,.2)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--blue)', marginBottom:14 }}>
-        📋 POQ Mode — AI reads your contract and prices each deliverable separately
+      {/* PROJECT SETTINGS */}
+      <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:11, padding:16, marginBottom:14 }}>
+        <div style={{ fontWeight:600, fontSize:14, marginBottom:12 }}>📋 Project Settings</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:12 }}>
+          <div style={{ gridColumn:'span 2', display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Project Name</label>
+            <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'7px 10px', color:'var(--text)', fontSize:13, outline:'none', width:'100%' }}
+              value={pName} onChange={e=>setPName(e.target.value)} placeholder="Project name" />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Client</label>
+            <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'7px 10px', color:'var(--text)', fontSize:13, outline:'none', width:'100%' }}
+              value={pClient} onChange={e=>setPClient(e.target.value)} placeholder="Client name" />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Profit %</label>
+            <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'7px 10px', color:'var(--text)', fontSize:13, outline:'none', width:'100%', textAlign:'right' }}
+              type="number" value={pProfit} onChange={e=>setPProfit(+e.target.value)} min={0} max={100} />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Risk %</label>
+            <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'7px 10px', color:'var(--text)', fontSize:13, outline:'none', width:'100%', textAlign:'right' }}
+              type="number" value={pRisk} onChange={e=>setPRisk(+e.target.value)} min={0} max={100} />
+          </div>
+        </div>
+        <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:10 }}>
+          <label style={{ fontSize:11, fontWeight:600, color:'var(--t2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Discount %</label>
+          <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+            <input type="number" value={pDiscount} min={0} max={100} step={1} onChange={e=>setPDiscount(+e.target.value)}
+              style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'5px 28px 5px 10px', color:'var(--red)', fontSize:13, outline:'none', width:90, textAlign:'right', fontFamily:"'JetBrains Mono',monospace" }} />
+            <span style={{ position:'absolute', right:9, fontSize:11, color:'var(--red)', pointerEvents:'none' }}>%</span>
+          </div>
+          <span style={{ fontSize:12, color:'var(--t2)' }}>· OH Base: <b style={{ color:'var(--gold)' }}>SAR {fmt(ohBase)}</b></span>
+        </div>
       </div>
 
       {/* AI ANALYZE BAR */}
