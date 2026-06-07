@@ -1189,6 +1189,45 @@ function ViewSettings({ ohBase, setOhBase, rcEditable, setRcEditable, saveNow })
 // ════════════════════════════════════════
 // POQ VIEW COMPONENT
 // ════════════════════════════════════════
+function BandRoleSelect({ value, onChange }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen]     = useState(false)
+  const filtered = search.trim()
+    ? RC.filter(r => r.role.toLowerCase().includes(search.toLowerCase()) || r.dept.toLowerCase().includes(search.toLowerCase()))
+    : RC
+  return (
+    <div style={{ position:'relative' }}>
+      <div style={{ position:'relative' }}>
+        <span style={{ position:'absolute', left:7, top:'50%', transform:'translateY(-50%)', fontSize:11, pointerEvents:'none' }}>🔍</span>
+        <input
+          style={{ background:'var(--bg)', border:'1px solid var(--purple)', borderRadius:6, padding:'4px 8px 4px 24px', color:'var(--text)', fontSize:11, width:'100%', outline:'none' }}
+          placeholder={value}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => { setOpen(false); setSearch('') }, 200)}
+          autoComplete="off"
+        />
+      </div>
+      {open && (
+        <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'var(--s2)', border:'1px solid var(--purple)', borderRadius:8, maxHeight:180, overflowY:'auto', zIndex:9999, boxShadow:'0 8px 24px rgba(0,0,0,.5)', minWidth:280 }}>
+          {filtered.slice(0,40).map((r,j) => (
+            <div key={j} onMouseDown={() => onChange(r)}
+              style={{ padding:'6px 10px', fontSize:11, cursor:'pointer', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between' }}>
+              <div>
+                <div style={{ fontWeight:500 }}>{r.role}</div>
+                <div style={{ fontSize:10, color:'var(--t2)' }}>{r.dept}</div>
+              </div>
+              <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--gold)', alignSelf:'center' }}>SAR {fmt(r.daily)}/d</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyzing, poqAiStatus, analyzePOQ, calcBand, calcPOQTotal, genPOQProposal, pName, setPName, pClient, setPClient, pProfit, setPProfit, pRisk, setPRisk, pDiscount, setPDiscount, ohBase, fmt, setModal, rfpStatus, setRfpStatus, rfpAnalyzing, analyzeRFP, setApiKey }) {
   const [editingBand, setEditingBand] = useState(null)
 
@@ -1325,7 +1364,11 @@ function POQView({ apiKey, rfpFile, setRfpFile, poqBands, setPoqBands, poqAnalyz
                 {band.team.length === 0 && <div style={{ fontSize:12, color:'var(--t3)', padding:'6px 0' }}>No team members</div>}
                 {band.team.map((r,ti) => (
                   <div key={ti} style={{ display:'grid', gridTemplateColumns: isEditing?'2fr 55px 55px 80px 28px':'2fr 55px 55px 80px', gap:6, alignItems:'center', padding:'5px 0', borderBottom:'1px solid var(--bd)' }}>
-                    <div><div style={{ fontSize:12, fontWeight:500 }}>{r.role}</div><div style={{ fontSize:10, color:'var(--t2)' }}>{r.dept}</div></div>
+                    {isEditing ? (
+                      <BandRoleSelect value={r.role} onChange={(rc) => setPoqBands(bs => bs.map((b,i) => i!==bi ? b : {...b, team: b.team.map((x,j) => j!==ti ? x : {...x, role:rc.role, dept:rc.dept, daily:rc.daily})}))}/>
+                    ) : (
+                      <div><div style={{ fontSize:12, fontWeight:500 }}>{r.role}</div><div style={{ fontSize:10, color:'var(--t2)' }}>{r.dept}</div></div>
+                    )}
                     {isEditing
                       ? <>
                           <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:6, padding:'3px 5px', color:'var(--text)', fontSize:11, textAlign:'right', width:'100%', outline:'none' }} type="number" value={r.res||1} min={1} onChange={e=>updBandTeam(bi,ti,'res',+e.target.value)} />
