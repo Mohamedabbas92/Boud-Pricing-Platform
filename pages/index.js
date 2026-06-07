@@ -48,7 +48,6 @@ export default function Home() {
   const [ohBase,       setOhBase]       = useState(544323)
   const [rcEditable,   setRcEditable]   = useState([])
   const [toolName,     setToolName]     = useState('')
-  const [pricingTab,   setPricingTab]   = useState('simple') // 'simple' | 'poq'
   const [poqBands,     setPoqBands]     = useState([])
   const [poqAnalyzing, setPoqAnalyzing] = useState(false)
   const [poqAiStatus,  setPoqAiStatus]  = useState(null)
@@ -117,8 +116,6 @@ export default function Home() {
     return { team, toolsTotal, vendTotal, oh, cost, profit, risk, sub, discAmt, subFinal, vat, total, ohPct, prPct, riPct }
   }, [roster, pTools, pVendors, pProfit, pRisk, pDiscount, pOh, ohBase])
 
-  const nums = calc()
-
   const addRole  = () => setRoster(r => [...r, { role: RC[0].role, dept: RC[0].dept, daily: RC[0].daily, days: 22, res: 1 }])
   const updRole  = (i, f, v) => setRoster(r => r.map((x, j) => j !== i ? x : { ...x, [f]: v }))
   const selRole  = (i, rc) => {
@@ -166,6 +163,14 @@ export default function Home() {
       const context = document.getElementById('rfp-context')?.value || ''
       const prompt = `You are a project pricing expert at BOUD AI, a Saudi Arabian tech consulting firm.
 Analyze this RFP/contract and recommend the optimal team for pricing.
+
+IMPORTANT WORKING DAYS RULE:
+- 1 month = 22 working days ONLY
+- 3 months = 66 working days
+- 6 months = 132 working days  
+- 12 months = 264 working days
+- Never exceed 264 days for a 12-month project
+
 You MUST use ONLY these EXACT role names:
 ${rcList}
 CRITICAL: role field must match EXACTLY.
@@ -234,6 +239,13 @@ Respond ONLY with valid JSON:
       const rcList = RC.map(r => `"${r.role}" (${r.dept}, SAR ${r.daily}/day)`).join('\n')
       const prompt = `You are a project pricing expert at BOUD AI, Saudi Arabia.
 Analyze this contract/RFP and extract the main deliverables as separate pricing bands.
+
+IMPORTANT WORKING DAYS RULE:
+- 1 month = 22 working days ONLY
+- 3 months = 66 working days
+- 6 months = 132 working days
+- 12 months = 264 working days
+- Never use more than 264 days for any role in a 12-month project
 
 Rate Card (use ONLY these EXACT role names):
 ${rcList}
@@ -515,223 +527,11 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
           {view === 'pricing' && (
             <div className="fade-in">
               <div style={S.ph}>
-                <div style={S.phT}>🧮 Create Proposal</div>
-                <div style={{ display:'flex', gap:0, marginTop:14, borderBottom:'1px solid var(--bd)' }}>
-                  {[['simple','📝 Simple'],['poq','📋 POQ']].map(([id,label])=>(
-                    <button key={id} onClick={()=>setPricingTab(id)} style={{ padding:'8px 20px', fontSize:13, fontWeight:600, cursor:'pointer', border:'none', borderBottom:pricingTab===id?'2px solid var(--purple)':'2px solid transparent', background:'transparent', color:pricingTab===id?'#c4b5fd':'var(--t2)', transition:'all .15s', marginBottom:-1 }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {pricingTab === 'simple' && (<>
-              <div style={{ background:'rgba(245,158,11,.07)', border:'1px solid rgba(245,158,11,.2)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--gold)', marginBottom:14 }}>
-                💡 Overhead Base: <b>SAR {fmt(ohBase)}</b> · OH = OH Base × Category% · VAT 15%
-              </div>
-              <div style={C.card}>
-                <div style={C.ch}>
-                  <div style={C.chL}><span>📋</span><span style={{ fontWeight:600 }}>Project Info</span></div>
-                  {ohAutoTag && <span style={{ ...C.tag('purple'), fontSize:11 }}>⚡ Auto OH: {({'0.15':'15%','0.20':'20%','0.25':'25%','0.40':'40%'})[ohAutoTag]}</span>}
-                </div>
-                <div style={C.cb}>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:12 }}>
-                    <div style={{ ...C.ff, gridColumn:'span 2' }}>
-                      <label style={C.lbl}>Project Name</label>
-                      <input style={C.fi} value={pName} onChange={e=>setPName(e.target.value)} placeholder="Project name" />
-                    </div>
-                    <div style={C.ff}>
-                      <label style={C.lbl}>Client</label>
-                      <input style={C.fi} value={pClient} onChange={e=>setPClient(e.target.value)} placeholder="Client name" />
-                    </div>
-                    <div style={C.ff}>
-                      <label style={C.lbl}>OH Category (auto)</label>
-                      <select style={{ ...C.fi, cursor:'pointer' }} value={pOh} onChange={e=>setPOh(e.target.value)}>
-                        <option value="0.15">Small ≤250K · 15%</option>
-                        <option value="0.20">Medium 250K–1M · 20%</option>
-                        <option value="0.25">Large 1M–2M · 25%</option>
-                        <option value="0.40">Enterprise &gt;2M · 40%</option>
-                      </select>
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                      <div style={C.ff}><label style={C.lbl}>Profit %</label><input style={C.fi} type="number" value={pProfit} onChange={e=>setPProfit(+e.target.value)} min={0} max={100} /></div>
-                      <div style={C.ff}><label style={C.lbl}>Risk %</label><input style={C.fi} type="number" value={pRisk} onChange={e=>setPRisk(+e.target.value)} min={0} max={100} /></div>
-                    </div>
-                  </div>
-                </div>
+                <div style={S.phT}>🧮 Create Proposal — POQ</div>
+                <div style={S.phS}>AI extracts deliverables from your contract · price each band separately</div>
               </div>
 
-              <div style={C.card}>
-                <div style={C.ch}>
-                  <div style={C.chL}><span>👥</span><div><div style={{ fontWeight:600 }}>Team Roster</div><div style={{ fontSize:11, color:'var(--t2)' }}>Search & reorder · drag ⠿ to sort</div></div></div>
-                  <div style={{ display:'flex', gap:6 }}>
-                    <button style={{ ...C.btn('warn'), padding:'5px 10px', fontSize:12 }} onClick={() => { setRfpStatus(null); setModal('rfp') }}>🤖 AI Analyze RFP</button>
-                    <button style={{ ...C.btn('p'), padding:'5px 10px', fontSize:12 }} onClick={addRole}>+ Add Role</button>
-                  </div>
-                </div>
-                <div style={C.cb}>
-                  {poqStatus && (
-                    <div style={{ background:'rgba(34,197,94,.07)', border:'1px solid rgba(34,197,94,.2)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--green)', marginBottom:12 }}>
-                      <div style={{ fontWeight:700, marginBottom:4 }}>🤖 AI Analysis Complete</div>
-                      <div style={{ fontSize:12, color:'var(--text)', lineHeight:1.6 }}>{poqStatus.result?.summary}</div>
-                      <div style={{ marginTop:6, display:'flex', gap:6, flexWrap:'wrap' }}>
-                        <span style={C.tag('green')}>✅ {roster.length} roles</span>
-                        {poqStatus.result?.duration_days && <span style={C.tag('blue')}>📅 ~{poqStatus.result.duration_days} days</span>}
-                        {poqStatus.result?.risk_notes && <span style={C.tag('gold')}>⚠️ Risk notes</span>}
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display:'grid', gridTemplateColumns:'22px 2fr 58px 65px 82px 88px 54px', gap:5, padding:'0 8px', marginBottom:5 }}>
-                    {['⠿','Role','Res.','Days','Rate/Day','Total',''].map((h,i)=>(
-                      <div key={i} style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', textAlign:i>=2&&i<=5?'right':'left' }}>{h}</div>
-                    ))}
-                  </div>
-                  {roster.length === 0 && <div style={{ textAlign:'center', padding:20, color:'var(--t2)', fontSize:13 }}>No roles — click "+ Add Role" or use 🤖 AI Analyze RFP</div>}
-                  {roster.map((row, i) => {
-                    const filtered = (rcSearch[i]||'').trim()
-                      ? RC.filter(r => r.role.toLowerCase().includes((rcSearch[i]||'').toLowerCase()) || r.dept.toLowerCase().includes((rcSearch[i]||'').toLowerCase()))
-                      : RC
-                    return (
-                      <div key={i} style={S.rr(dragSrc===i)} draggable onDragStart={()=>onDragStart(i)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(i)} onDragEnd={()=>setDragSrc(null)}>
-                        <div style={{ cursor:'grab', color:'var(--t3)', textAlign:'center', userSelect:'none' }}>⠿</div>
-                        <div style={{ position:'relative' }}>
-                          <div style={{ position:'relative' }}>
-                            <span style={{ position:'absolute', left:9, top:'50%', transform:'translateY(-50%)', fontSize:11, pointerEvents:'none' }}>🔍</span>
-                            <input style={{ ...C.fi, paddingLeft:28, fontSize:12, padding:'5px 8px 5px 28px' }} placeholder={row.role} value={rcSearch[i]||''} onChange={e=>setRcSearch(s=>({...s,[i]:e.target.value}))} onFocus={()=>setOpenDrops(d=>({...d,[i]:true}))} onBlur={()=>setTimeout(()=>setOpenDrops(d=>({...d,[i]:false})),200)} autoComplete="off" />
-                          </div>
-                          {openDrops[i] && (
-                            <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'var(--s2)', border:'1px solid var(--purple)', borderRadius:8, maxHeight:200, overflowY:'auto', zIndex:9999, boxShadow:'0 8px 24px rgba(0,0,0,.5)', minWidth:320 }}>
-                              {filtered.slice(0,40).map((r,j) => (
-                                <div key={j} onMouseDown={()=>selRole(i,r)} style={{ padding:'7px 11px', fontSize:12, cursor:'pointer', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between' }}>
-                                  <div><div style={{ fontWeight:500 }}>{r.role}</div><div style={{ fontSize:10, color:'var(--t2)' }}>{r.dept}</div></div>
-                                  <div style={{ ...C.mono, fontSize:11, color:'var(--gold)' }}>SAR {fmt(r.daily)}/day</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div style={{ fontSize:10, color:'var(--t2)', marginTop:2 }}>{row.dept}</div>
-                        </div>
-                        <input style={{ ...C.fi, textAlign:'right', fontSize:12, padding:'4px 6px' }} type="number" value={row.res||1} min={1} onChange={e=>updRole(i,'res',+e.target.value)} />
-                        <input style={{ ...C.fi, textAlign:'right', fontSize:12, padding:'4px 6px' }} type="number" value={row.days} min={1} onChange={e=>updRole(i,'days',+e.target.value)} />
-                        <div style={{ ...C.mono, textAlign:'right', fontSize:12, color:'var(--t2)' }}>{fmt(row.daily)}</div>
-                        <div style={{ ...C.mono, textAlign:'right', fontSize:13, fontWeight:700, color:'var(--gold)' }}>{fmt(row.daily*row.days*(row.res||1))}</div>
-                        <div style={{ display:'flex', gap:2 }}>
-                          <button style={{ ...C.btn('g'), padding:'2px 5px', fontSize:10, border:'1px solid var(--bd)' }} onClick={()=>moveRole(i,-1)} disabled={i===0}>▲</button>
-                          <button style={{ ...C.btn('g'), padding:'2px 5px', fontSize:10, border:'1px solid var(--bd)' }} onClick={()=>moveRole(i,1)} disabled={i===roster.length-1}>▼</button>
-                          <button style={{ ...C.btn('danger'), padding:'2px 6px', fontSize:11 }} onClick={()=>delRole(i)}>✕</button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div style={C.card}>
-                <div style={C.ch}>
-                  <div style={C.chL}><span>🔧</span><span style={{ fontWeight:600 }}>Tools & Licenses</span></div>
-                  <button style={{ ...C.btn('g'), padding:'4px 10px', fontSize:12 }} onClick={()=>setModal('pickTools')}>📥 Pick from DB</button>
-                </div>
-                <div style={C.cb}>
-                  <div style={{ display:'grid', gridTemplateColumns:'2fr 70px 85px 76px 32px', gap:5, padding:'0 8px', marginBottom:5 }}>
-                    {['Tool','Qty','Unit Cost','Total',''].map((h,i)=><div key={i} style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', textAlign:i>=1&&i<=3?'right':'left' }}>{h}</div>)}
-                  </div>
-                  {pTools.map((t,i)=>(
-                    <div key={i} style={{ display:'grid', gridTemplateColumns:'2fr 70px 85px 76px 32px', gap:5, alignItems:'center', padding:'6px 8px', background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:8, marginBottom:5 }}>
-                      <input style={{ ...C.fi, fontSize:12, padding:'4px 7px' }} value={t.name} onChange={e=>setPTools(ts=>ts.map((x,j)=>j!==i?x:{...x,name:e.target.value}))} />
-                      <input style={{ ...C.fi, textAlign:'right', fontSize:12, padding:'4px 6px' }} type="number" value={t.qty||1} min={1} onChange={e=>setPTools(ts=>ts.map((x,j)=>j!==i?x:{...x,qty:+e.target.value}))} />
-                      <input style={{ ...C.fi, textAlign:'right', fontSize:12, padding:'4px 6px' }} type="number" value={t.cost} onChange={e=>setPTools(ts=>ts.map((x,j)=>j!==i?x:{...x,cost:+e.target.value}))} />
-                      <div style={{ ...C.mono, textAlign:'right', fontSize:12, fontWeight:700, color:'var(--gold)' }}>SAR {fmt((t.qty||1)*t.cost)}</div>
-                      <button style={{ ...C.btn('danger'), padding:'3px 6px', fontSize:11 }} onClick={()=>setPTools(ts=>ts.filter((_,j)=>j!==i))}>✕</button>
-                    </div>
-                  ))}
-                  <div style={{ display:'grid', gridTemplateColumns:'2fr 70px 85px auto', gap:7, alignItems:'flex-end', marginTop:8 }}>
-                    <div style={C.ff}><label style={C.lbl}>Tool Name</label><input style={C.fi} value={toolName} onChange={e=>setToolName(e.target.value)} placeholder="e.g. Jira, Figma" /></div>
-                    <div style={C.ff}><label style={C.lbl}>Qty</label><input style={{ ...C.fi, textAlign:'right' }} type="number" value={toolQty} onChange={e=>setToolQty(+e.target.value)} min={1} /></div>
-                    <div style={C.ff}><label style={C.lbl}>Unit Cost</label><input style={{ ...C.fi, textAlign:'right' }} type="number" value={toolCost} onChange={e=>setToolCost(e.target.value)} placeholder="0" /></div>
-                    <button style={{ ...C.btn('g'), height:35 }} onClick={addTool}>+ Add</button>
-                  </div>
-                </div>
-              </div>
-
-              <div style={C.card}>
-                <div style={C.ch}>
-                  <div style={C.chL}><span>🏭</span><span style={{ fontWeight:600 }}>Vendor & Subcontractor Expenses</span></div>
-                  <button style={{ ...C.btn('g'), padding:'4px 10px', fontSize:12 }} onClick={()=>setModal('pickVendors')}>📥 Pick from DB</button>
-                </div>
-                <div style={C.cb}>
-                  <div style={{ display:'grid', gridTemplateColumns:'2fr 85px 78px 78px 32px', gap:5, padding:'0 8px', marginBottom:5 }}>
-                    {['Vendor','Type','Amount','Total',''].map((h,i)=><div key={i} style={{ fontSize:10, fontWeight:700, color:'var(--t3)', textTransform:'uppercase', textAlign:i>=2&&i<=3?'right':'left' }}>{h}</div>)}
-                  </div>
-                  {pVendors.map((v,i)=>(
-                    <div key={i} style={{ display:'grid', gridTemplateColumns:'2fr 85px 78px 78px 32px', gap:5, alignItems:'center', padding:'6px 8px', background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:8, marginBottom:5 }}>
-                      <input style={{ ...C.fi, fontSize:12, padding:'4px 7px' }} value={v.name} onChange={e=>setPVendors(vs=>vs.map((x,j)=>j!==i?x:{...x,name:e.target.value}))} />
-                      <select style={{ ...C.fi, fontSize:12, padding:'4px 6px' }} value={v.type} onChange={e=>setPVendors(vs=>vs.map((x,j)=>j!==i?x:{...x,type:e.target.value}))}>
-                        {['One-time','Monthly','Per Project'].map(o=><option key={o}>{o}</option>)}
-                      </select>
-                      <input style={{ ...C.fi, textAlign:'right', fontSize:12, padding:'4px 6px' }} type="number" value={v.cost} onChange={e=>setPVendors(vs=>vs.map((x,j)=>j!==i?x:{...x,cost:+e.target.value}))} />
-                      <div style={{ ...C.mono, textAlign:'right', fontSize:12, fontWeight:700, color:'var(--gold)' }}>SAR {fmt(v.cost)}</div>
-                      <button style={{ ...C.btn('danger'), padding:'3px 6px', fontSize:11 }} onClick={()=>setPVendors(vs=>vs.filter((_,j)=>j!==i))}>✕</button>
-                    </div>
-                  ))}
-                  <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr auto', gap:7, alignItems:'flex-end', marginTop:8 }}>
-                    <div style={C.ff}><label style={C.lbl}>Vendor / Service</label><input style={C.fi} value={vendName} onChange={e=>setVendName(e.target.value)} placeholder="e.g. Cloud hosting" /></div>
-                    <div style={C.ff}><label style={C.lbl}>Amount SAR</label><input style={{ ...C.fi, textAlign:'right' }} type="number" value={vendCost} onChange={e=>setVendCost(e.target.value)} placeholder="0" /></div>
-                    <div style={C.ff}><label style={C.lbl}>Type</label><select style={{ ...C.fi, cursor:'pointer' }} value={vendType} onChange={e=>setVendType(e.target.value)}>{['One-time','Monthly','Per Project'].map(o=><option key={o}>{o}</option>)}</select></div>
-                    <button style={{ ...C.btn('g'), height:35 }} onClick={addVendor}>+ Add</button>
-                  </div>
-                </div>
-              </div>
-
-              <div style={C.card}>
-                <div style={C.ch}>
-                  <div style={C.chL}><span>💰</span><span style={{ fontWeight:600 }}>Pricing Summary</span></div>
-                  <button style={{ ...C.btn('p'), padding:'5px 12px', fontSize:12 }} onClick={genProposal}>📄 Generate Proposal</button>
-                </div>
-                <div style={C.cb}>
-                  <div style={{ background:'var(--s2)', border:'1px solid var(--bd)', borderRadius:9, padding:14 }}>
-                    {[['Team Cost',nums.team,''],['Tools & Licenses',nums.toolsTotal,''],['Vendor Expenses',nums.vendTotal,''],
-                      [`Overhead (${Math.round(nums.ohPct*100)}%)`,nums.oh,''],
-                      ['Total Cost',nums.cost,'var(--blue)',true],
-                      [`Profit (${pProfit}%)`,nums.profit,'var(--green)'],
-                      [`Risk Buffer (${pRisk}%)`,nums.risk,'']
-                    ].map(([label,val,color,hl],i) => (
-                      <div key={i} style={{ ...S.psRow, ...(hl?{background:'rgba(96,165,250,.07)',padding:'7px 8px',borderRadius:7,border:'none',margin:'4px 0'}:{}) }}>
-                        <span style={{ color:color||'var(--t2)', fontWeight:hl?700:400 }}>{label}</span>
-                        <span style={{ ...C.mono, color:color||'var(--text)' }}>SAR {fmt(val)}</span>
-                      </div>
-                    ))}
-                    <div style={{ ...S.psRow, background:'rgba(239,68,68,.05)', padding:'6px 8px', borderRadius:7, border:'none', margin:'4px 0', alignItems:'center' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <span style={{ color:'var(--t2)' }}>Discount</span>
-                        <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-                          <input type="number" value={pDiscount} min={0} max={100} step={1} onChange={e=>setPDiscount(+e.target.value)} style={{ ...C.fi, width:65, textAlign:'right', padding:'2px 22px 2px 7px', fontFamily:'JetBrains Mono,monospace', fontSize:12, color:'var(--red)' }} />
-                          <span style={{ position:'absolute', right:7, fontSize:11, color:'var(--red)', pointerEvents:'none' }}>%</span>
-                        </div>
-                      </div>
-                      <span style={{ ...C.mono, color:'var(--red)' }}>- SAR {fmt(nums.discAmt)}</span>
-                    </div>
-                    <div style={S.psRow}><span style={{ color:'var(--t2)' }}>VAT (15%)</span><span style={{ ...C.mono, color:'var(--t2)' }}>SAR {fmt(nums.vat)}</span></div>
-                    <div style={{ ...S.psRow, borderBottom:'none', paddingTop:8 }}><span style={{ color:'var(--t2)' }}>Contract Price (excl. VAT)</span><span style={{ ...C.mono, color:'var(--gold)' }}>SAR {fmt(nums.subFinal)}</span></div>
-                  </div>
-                  <div style={{ background:'linear-gradient(135deg,#3d2870,#c44b1e)', borderRadius:10, overflow:'hidden', marginTop:14, position:'relative' }}>
-                    <div style={{ position:'absolute', left:0, top:0, bottom:0, width:5, background:'rgba(255,255,255,.35)' }} />
-                    <div style={{ padding:'18px 22px 18px 30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <div>
-                        <div style={{ fontSize:12, color:'rgba(255,255,255,.75)', fontWeight:500 }}>Total Contract Price (incl. VAT 15%)</div>
-                        <div style={{ fontSize:11, color:'rgba(255,255,255,.5)', marginTop:3 }}>{pClient||'—'} · {pName||'Untitled'}</div>
-                        {pDiscount > 0 && <div style={{ fontSize:10, color:'rgba(255,255,255,.5)', marginTop:2 }}>Discount {pDiscount}% applied</div>}
-                      </div>
-                      <div style={{ ...C.mono, fontSize:26, fontWeight:900, color:'#fff' }}>
-                        <span style={{ fontSize:13, fontWeight:400, color:'rgba(255,255,255,.55)', marginRight:4 }}>SAR</span>
-                        {fmt(nums.total)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              </>)}
-
-              {pricingTab === 'poq' && (
-                <POQView
+                            <POQView
                   apiKey={apiKey} rfpFile={rfpFile} setRfpFile={setRfpFile}
                   poqBands={poqBands} setPoqBands={setPoqBands}
                   poqAnalyzing={poqAnalyzing} poqAiStatus={poqAiStatus}
