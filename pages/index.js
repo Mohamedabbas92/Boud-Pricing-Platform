@@ -482,7 +482,7 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
   ]
 
   const views = {
-    projects:  <ViewProjects  projects={projects}   setProjects={setProjects}   setPName={setPName}   setPClient={setPClient}   setView={setView} saveNow={saveNow} setRoster={setRoster} setPTools={setPTools} setPVendors={setPVendors} setPDiscount={setPDiscount} />,
+    projects:  <ViewProjects  projects={projects}   setProjects={setProjects}   setPName={setPName}   setPClient={setPClient}   setView={setView} saveNow={saveNow} setRoster={setRoster} setPTools={setPTools} setPVendors={setPVendors} setPDiscount={setPDiscount} setPProfit={setPProfit} setPRisk={setPRisk} setPOh={setPOh} setPoqBands={setPoqBands} setPoqAiStatus={setPoqAiStatus} setPoqStatus={setPoqStatus} />,
     vendors:   <ViewVendorsDB vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendSearch={vendSearch} setVendSearch={setVendSearch} />,
     tools:     <ViewToolsDB   toolsDB={toolsDB}     setToolsDB={setToolsDB}     toolSearch={toolSearch} setToolSearch={setToolSearch} />,
     proposals: <ViewProposals savedProps={savedProps} setSavedProps={setSavedProps} propFilter={propFilter} setPropFilter={setPropFilter} />,
@@ -511,7 +511,14 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
             <div style={S.navS}>Main</div>
             {navItems.map((item, idx) => item === null
               ? <div key={idx} style={S.div} />
-              : <button key={item.id} style={S.navI(view === item.id)} onClick={() => setView(item.id)}>
+              : <button key={item.id} style={S.navI(view === item.id)} onClick={() => {
+                  if (item.id === 'pricing') {
+                    setPName(''); setPClient(''); setPProfit(30); setPRisk(10); setPDiscount(0); setPOh('0.25');
+                    setRoster([]); setPTools([]); setPVendors([]);
+                    setPoqBands([]); setPoqAiStatus(null); setPoqStatus(null);
+                  }
+                  setView(item.id)
+                }}>
                   <span style={{ fontSize:15, width:20 }}>{item.icon}</span>
                   {item.label}
                   {item.badge !== undefined && item.badge > 0 && <span style={S.badge}>{item.badge}</span>}
@@ -615,7 +622,7 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
   )
 }
 
-function ViewProjects({ projects, setProjects, setPName, setPClient, setView, saveNow, setRoster, setPTools, setPVendors, setPDiscount }) {
+function ViewProjects({ projects, setProjects, setPName, setPClient, setView, saveNow, setRoster, setPTools, setPVendors, setPDiscount, setPProfit, setPRisk, setPOh, setPoqBands, setPoqAiStatus, setPoqStatus }) {
   const [modal, setModal] = useState(null)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({})
@@ -684,7 +691,9 @@ function ViewProjects({ projects, setProjects, setPName, setPClient, setView, sa
             <div style={{ display:'flex', gap:6 }}>
               <button style={{ ...C.btn('success'), padding:'4px 10px', fontSize:12 }} onClick={()=>{ 
                 setPName(p.name); setPClient(p.client);
-                setRoster([]); setPTools([]); setPVendors([]); setPDiscount(0);
+                setPProfit(30); setPRisk(10); setPDiscount(0); setPOh('0.25');
+                setRoster([]); setPTools([]); setPVendors([]);
+                setPoqBands([]); setPoqAiStatus(null); setPoqStatus(null);
                 setView('pricing'); toast('Loaded: ' + p.name, 'ok');
               }}>🧮 Price</button>
               <button style={{ ...C.btn('g'), padding:'4px 10px', fontSize:12 }} onClick={()=>openEdit(p)}>✏️</button>
@@ -897,6 +906,7 @@ function ViewToolsDB({ toolsDB, setToolsDB, toolSearch, setToolSearch }) {
 }
 
 function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter }) {
+  const [editingProp, setEditingProp] = useState(null)
   const filters = ['all','draft','sent','review','won','lost']
   const list = propFilter==='all' ? savedProps : savedProps.filter(p=>(p.status||'draft')===propFilter)
   const barColor = { draft:'var(--blue)', sent:'#a78bfa', review:'var(--gold)', won:'var(--green)', lost:'var(--red)' }
@@ -921,16 +931,31 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter })
           <div style={{ position:'absolute', left:0, top:0, bottom:0, width:4, background:barColor[p.status||'draft'] }} />
           <div style={{ padding:'14px 16px 14px 20px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-              <div>
-                <div style={{ fontSize:14, fontWeight:700 }}>{p.projName}</div>
-                <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>{p.client} · {new Date(p.savedAt).toLocaleDateString('en-SA',{year:'numeric',month:'short',day:'numeric'})}</div>
+              <div style={{ flex:1 }}>
+                {editingProp === p.id ? (
+                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                    <input style={{ background:'var(--bg)', border:'1px solid var(--purple)', borderRadius:7, padding:'5px 10px', color:'var(--text)', fontSize:14, fontWeight:700, outline:'none', minWidth:200 }}
+                      value={p.projName} onChange={e => setSavedProps(ps => ps.map(x => x.id===p.id ? {...x, projName:e.target.value} : x))} />
+                    <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'5px 10px', color:'var(--text)', fontSize:12, outline:'none', minWidth:150 }}
+                      value={p.client} onChange={e => setSavedProps(ps => ps.map(x => x.id===p.id ? {...x, client:e.target.value} : x))} />
+                    <button style={{ background:'rgba(34,197,94,.12)', color:'var(--green)', border:'1px solid rgba(34,197,94,.25)', padding:'4px 12px', borderRadius:7, fontSize:12, cursor:'pointer' }}
+                      onClick={() => setEditingProp(null)}>✓ Done</button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize:14, fontWeight:700 }}>{p.projName}</div>
+                    <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>{p.client} · {new Date(p.savedAt).toLocaleDateString('en-SA',{year:'numeric',month:'short',day:'numeric'})}</div>
+                  </>
+                )}
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
                 <div style={{ textAlign:'right' }}>
                   <div style={{ fontSize:18, fontWeight:900, color:'var(--gold)', fontFamily:"'JetBrains Mono',monospace" }}>SAR {p.total.toLocaleString()}</div>
                   {p.discount>0 && <div style={{ fontSize:10, color:'var(--red)' }}>Discount {p.discount}%</div>}
                 </div>
                 <Tag color={PROP_TAG[p.status||'draft']}>{PROP_STATUS[p.status||'draft']?.icon} {PROP_STATUS[p.status||'draft']?.label}</Tag>
+                <button style={{ background:'rgba(91,63,160,.1)', color:'#c4b5fd', border:'1px solid rgba(91,63,160,.2)', padding:'3px 9px', borderRadius:7, fontSize:11, cursor:'pointer' }}
+                  onClick={() => setEditingProp(editingProp === p.id ? null : p.id)}>✏️ Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:5, marginTop:10, paddingTop:10, borderTop:'1px solid var(--bd)', flexWrap:'wrap', alignItems:'center' }}>
