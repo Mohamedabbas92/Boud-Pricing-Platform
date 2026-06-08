@@ -485,7 +485,7 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
     projects:  <ViewProjects  projects={projects}   setProjects={setProjects}   setPName={setPName}   setPClient={setPClient}   setView={setView} saveNow={saveNow} setRoster={setRoster} setPTools={setPTools} setPVendors={setPVendors} setPDiscount={setPDiscount} setPProfit={setPProfit} setPRisk={setPRisk} setPOh={setPOh} setPoqBands={setPoqBands} setPoqAiStatus={setPoqAiStatus} setPoqStatus={setPoqStatus} />,
     vendors:   <ViewVendorsDB vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendSearch={vendSearch} setVendSearch={setVendSearch} />,
     tools:     <ViewToolsDB   toolsDB={toolsDB}     setToolsDB={setToolsDB}     toolSearch={toolSearch} setToolSearch={setToolSearch} />,
-    proposals: <ViewProposals savedProps={savedProps} setSavedProps={setSavedProps} propFilter={propFilter} setPropFilter={setPropFilter} />,
+    proposals: <ViewProposals savedProps={savedProps} setSavedProps={setSavedProps} propFilter={propFilter} setPropFilter={setPropFilter} setPName={setPName} setPClient={setPClient} setPProfit={setPProfit} setPRisk={setPRisk} setPDiscount={setPDiscount} setPOh={setPOh} setPoqBands={setPoqBands} setView={setView} />,
     dashboard: <ViewDashboard savedProps={savedProps} />,
     ratecard:  <ViewRateCard  rcEditable={rcEditable} setRcEditable={setRcEditable} />,
     settings:  <ViewSettings  ohBase={ohBase} setOhBase={setOhBase} rcEditable={rcEditable} setRcEditable={setRcEditable} saveNow={saveNow} />,
@@ -905,13 +905,24 @@ function ViewToolsDB({ toolsDB, setToolsDB, toolSearch, setToolSearch }) {
   )
 }
 
-function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter }) {
+function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, setPName, setPClient, setPProfit, setPRisk, setPDiscount, setPOh, setPoqBands, setView }) {
   const [editingProp, setEditingProp] = useState(null)
   const filters = ['all','draft','sent','review','won','lost']
   const list = propFilter==='all' ? savedProps : savedProps.filter(p=>(p.status||'draft')===propFilter)
   const barColor = { draft:'var(--blue)', sent:'#a78bfa', review:'var(--gold)', won:'var(--green)', lost:'var(--red)' }
   const updStatus = (id, status) => { setSavedProps(ps=>ps.map(p=>p.id==id?{...p,status}:p)); toast(`Status: ${PROP_STATUS[status]?.label}`,'ok') }
   const del = (id) => { if(!confirm('Delete?'))return; setSavedProps(ps=>ps.filter(p=>p.id!=id)); toast('Deleted') }
+  const loadProposalForEdit = (p) => {
+    setPName(p.projName)
+    setPClient(p.client)
+    setPProfit(p.pProfit || 30)
+    setPRisk(p.pRisk || 10)
+    setPDiscount(p.discount || 0)
+    setPOh(p.pOh || '0.25')
+    setPoqBands(p.bands || [])
+    setView('pricing')
+    toast('Proposal loaded for editing', 'ok')
+  }
 
   return (
     <div className="fade-in">
@@ -955,7 +966,13 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter })
                 </div>
                 <Tag color={PROP_TAG[p.status||'draft']}>{PROP_STATUS[p.status||'draft']?.icon} {PROP_STATUS[p.status||'draft']?.label}</Tag>
                 <button style={{ background:'rgba(91,63,160,.1)', color:'#c4b5fd', border:'1px solid rgba(91,63,160,.2)', padding:'3px 9px', borderRadius:7, fontSize:11, cursor:'pointer' }}
-                  onClick={() => setEditingProp(editingProp === p.id ? null : p.id)}>✏️ Edit</button>
+                  onClick={() => {
+                    if (p.bands?.length) {
+                      loadProposalForEdit(p)
+                    } else {
+                      setEditingProp(editingProp === p.id ? null : p.id)
+                    }
+                  }}>✏️ Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:5, marginTop:10, paddingTop:10, borderTop:'1px solid var(--bd)', flexWrap:'wrap', alignItems:'center' }}>
