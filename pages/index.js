@@ -359,6 +359,197 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
     return { subtotal, oh, ohPct, cost, profit, risk, sub, discAmt, subFinal, vat, total }
   }
 
+  const genClientProposal = () => {
+    if (!pName.trim()) { toast('Enter project name', 'err'); return }
+    if (!poqBands.length) { toast('No bands yet', 'err'); return }
+    const n = calcPOQTotal()
+    const date = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' })
+    const dateEn = new Date().toLocaleDateString('en-SA', { year:'numeric', month:'long', day:'numeric' })
+
+    // Build bands rows for client table
+    let rowNum = 1
+    let bandRows = ''
+    poqBands.forEach(band => {
+      const b = calcBand(band)
+      const qty  = band.qty  || 1
+      const type = band.type || 'تقرير'
+      const unitPrice = Math.round(b.subtotal / qty)
+      bandRows += `<tr>
+        <td style="text-align:center;font-weight:700;color:#5b3fa0">\${rowNum++}</td>
+        <td style="text-align:right">\${band.name}</td>
+        <td style="text-align:center">\${type}</td>
+        <td style="text-align:center">\${qty}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace">\${fmt(unitPrice)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:700">\${fmt(b.subtotal)}</td>
+      </tr>`
+    })
+
+    const subFinal = n.subFinal
+    const vat      = n.vat
+    const total    = n.total
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>العرض المالي — \${pName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',Arial,sans-serif;font-size:13px;color:#1a1f2e;background:#fff;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:900px;margin:0 auto;padding:40px 44px 80px}
+.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:3px solid #5b3fa0;margin-bottom:24px}
+.logo-box{display:flex;align-items:center;gap:12px}
+.logo-circle{width:52px;height:52px;background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px}
+.company-name{font-size:18px;font-weight:800;color:#5b3fa0}
+.company-sub{font-size:11px;color:#888;margin-top:2px}
+.doc-info{text-align:left;font-size:12px;color:#666}
+.doc-info .title{font-size:15px;font-weight:700;color:#1a1f2e;margin-bottom:4px}
+.hero{background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:26px;color:#fff;text-align:center}
+.hero h1{font-size:20px;font-weight:800;margin-bottom:6px}
+.hero p{font-size:13px;color:rgba(255,255,255,.8)}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
+.meta-card{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:10px;padding:14px 16px}
+.meta-card .lbl{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.meta-card .val{font-size:14px;font-weight:700;color:#1a1f2e}
+.section-title{font-size:11px;font-weight:800;color:#fff;text-transform:uppercase;background:linear-gradient(90deg,#5b3fa0,#c44b1e);display:inline-block;padding:5px 14px;border-radius:6px;margin-bottom:14px;letter-spacing:.05em}
+table{width:100%;border-collapse:collapse;margin-bottom:20px}
+thead th{background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;padding:11px 12px;font-size:12px;font-weight:700;text-align:center}
+thead th:first-child{border-radius:0 8px 0 0}
+thead th:last-child{border-radius:8px 0 0 0}
+tbody tr:nth-child(even){background:#f8f9fc}
+tbody td{padding:11px 12px;border-bottom:1px solid #e8ebf0;font-size:13px;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+.total-section{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:11px;padding:16px 20px;margin-bottom:20px}
+.total-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e8ebf0;font-size:14px}
+.total-row:last-child{border-bottom:none;padding-top:10px}
+.total-row.highlight{background:#f0ecfb;padding:10px 12px;border-radius:8px;margin:6px 0;border-bottom:none}
+.total-lbl{color:#555;font-weight:500}
+.total-val{font-weight:700;font-family:'Courier New',monospace}
+.grand-total{background:linear-gradient(135deg,#3d2870,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;position:relative;overflow:hidden}
+.grand-total::before{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;background:rgba(255,255,255,.4)}
+.grand-total .lbl{font-size:14px;color:rgba(255,255,255,.85);font-weight:600}
+.grand-total .sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
+.grand-total .amount{font-size:32px;font-weight:900;color:#fff;font-family:'Courier New',monospace}
+.grand-total .sar{font-size:15px;font-weight:400;color:rgba(255,255,255,.6);margin-left:6px}
+.validity{background:#fff8e1;border:1px solid #fdd835;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#795548;display:flex;align-items:center;gap:8px}
+.footer{margin-top:30px;border-top:2px solid #5b3fa0;padding-top:14px;display:flex;justify-content:space-between;align-items:center}
+.footer-logo{font-size:13px;font-weight:700;color:#5b3fa0}
+.footer-info{font-size:10px;color:#999;text-align:left}
+.watermark{text-align:center;font-size:9px;color:#ccc;margin-top:8px}
+.print-bar{position:fixed;bottom:0;left:0;right:0;padding:14px;text-align:center;background:rgba(7,9,15,.9);backdrop-filter:blur(4px)}
+@media print{.print-bar{display:none!important}@page{margin:15mm;size:A4}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="logo-box">
+      <div class="logo-circle">B</div>
+      <div>
+        <div class="company-name">BOUD AI</div>
+        <div class="company-sub">شركة بُعد للحلول التقنية</div>
+      </div>
+    </div>
+    <div class="doc-info">
+      <div class="title">العرض المالي</div>
+      <div>تاريخ التقديم: \${dateEn}</div>
+      <div style="margin-top:3px;color:#5b3fa0;font-weight:600">هذا العرض صالح لمدة 90 يوم من تاريخ الإصدار</div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <h1>العرض المالي لمشروع</h1>
+    <p style="font-size:16px;font-weight:700;margin:8px 0">\${pName}</p>
+    <p>مقدم إلى: <b>\${pClient || '—'}</b></p>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-card">
+      <div class="lbl">اسم المشروع</div>
+      <div class="val">\${pName}</div>
+    </div>
+    <div class="meta-card">
+      <div class="lbl">مقدم إلى</div>
+      <div class="val">\${pClient || '—'}</div>
+    </div>
+    <div class="meta-card">
+      <div class="lbl">تاريخ التقديم</div>
+      <div class="val">\${dateEn}</div>
+    </div>
+    <div class="meta-card">
+      <div class="lbl">عدد البنود</div>
+      <div class="val">\${poqBands.length} بند</div>
+    </div>
+  </div>
+
+  <div class="section-title">جدول الكميات والأسعار</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>البند</th>
+        <th style="width:90px">وحدة القياس</th>
+        <th style="width:70px">الكمية</th>
+        <th style="width:130px">سعر الوحدة</th>
+        <th style="width:140px">السعر الإجمالي</th>
+      </tr>
+    </thead>
+    <tbody>
+      \${bandRows}
+    </tbody>
+  </table>
+
+  <div class="total-section">
+    <div class="total-row highlight">
+      <span class="total-lbl" style="font-weight:700">التكلفة الإجمالية للمشروع من دون ضريبة القيمة المضافة (رقماً)</span>
+      <span class="total-val" style="color:#5b3fa0;font-size:16px">SAR \${fmt(subFinal)}</span>
+    </div>
+    <div class="total-row">
+      <span class="total-lbl">قيمة ضريبة القيمة المضافة 15%</span>
+      <span class="total-val">SAR \${fmt(vat)}</span>
+    </div>
+  </div>
+
+  <div class="grand-total">
+    <div>
+      <div class="lbl">التكلفة الإجمالية للمشروع شاملة ضريبة القيمة المضافة</div>
+      <div class="sub">المطبقة في المملكة العربية السعودية (رقماً)</div>
+    </div>
+    <div style="text-align:left">
+      <div class="amount"><span class="sar">SAR</span>\${fmt(total)}</div>
+    </div>
+  </div>
+
+  <div class="validity">
+    ⚠️ بيان إخلاء المسؤولية: يحتوي هذا المستند على معلومات سرية خاصة بشركة بُعد، مقدمة للاستخدام الحصري للمتلقي المقصود فقط.
+  </div>
+
+  <div class="footer">
+    <div class="footer-logo">BOUD AI · شركة بُعد</div>
+    <div class="footer-info">
+      <div>\${pName} · \${dateEn}</div>
+      <div>العرض المالي — سري وخاص</div>
+    </div>
+  </div>
+  <div class="watermark">هذا المستند سري ومخصص للعميل فقط</div>
+</div>
+
+<div class="print-bar">
+  <button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 40px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',Arial,sans-serif">
+    🖨️ طباعة / حفظ كـ PDF
+  </button>
+</div>
+</body>
+</html>`
+
+    const blob = new Blob([html], { type:'text/html' })
+    window.open(URL.createObjectURL(blob), '_blank')
+    toast('Client proposal generated!', 'ok')
+  }
+
+
   const genPOQProposal = () => {
     if (!pName.trim()) { toast('Enter project name', 'err'); return }
     if (!poqBands.length) { toast('No bands — analyze contract first', 'err'); return }
@@ -912,195 +1103,6 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, s
   const barColor = { draft:'var(--blue)', sent:'#a78bfa', review:'var(--gold)', won:'var(--green)', lost:'var(--red)' }
   const updStatus = (id, status) => { setSavedProps(ps=>ps.map(p=>p.id==id?{...p,status}:p)); toast(`Status: ${PROP_STATUS[status]?.label}`,'ok') }
   const del = (id) => { if(!confirm('Delete?'))return; setSavedProps(ps=>ps.filter(p=>p.id!=id)); toast('Deleted') }
-  const genClientProposal = () => {
-    if (!pName.trim()) { toast('Enter project name', 'err'); return }
-    if (!poqBands.length) { toast('No bands yet', 'err'); return }
-    const n = calcPOQTotal()
-    const date = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' })
-    const dateEn = new Date().toLocaleDateString('en-SA', { year:'numeric', month:'long', day:'numeric' })
-
-    // Build bands rows for client table
-    let rowNum = 1
-    let bandRows = ''
-    poqBands.forEach(band => {
-      const b = calcBand(band)
-      const qty  = band.qty  || 1
-      const type = band.type || 'تقرير'
-      const unitPrice = Math.round(b.subtotal / qty)
-      bandRows += `<tr>
-        <td style="text-align:center;font-weight:700;color:#5b3fa0">\${rowNum++}</td>
-        <td style="text-align:right">\${band.name}</td>
-        <td style="text-align:center">\${type}</td>
-        <td style="text-align:center">\${qty}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace">\${fmt(unitPrice)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:700">\${fmt(b.subtotal)}</td>
-      </tr>`
-    })
-
-    const subFinal = n.subFinal
-    const vat      = n.vat
-    const total    = n.total
-
-    const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<title>العرض المالي — \${pName}</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Cairo',Arial,sans-serif;font-size:13px;color:#1a1f2e;background:#fff;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:900px;margin:0 auto;padding:40px 44px 80px}
-.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:3px solid #5b3fa0;margin-bottom:24px}
-.logo-box{display:flex;align-items:center;gap:12px}
-.logo-circle{width:52px;height:52px;background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px}
-.company-name{font-size:18px;font-weight:800;color:#5b3fa0}
-.company-sub{font-size:11px;color:#888;margin-top:2px}
-.doc-info{text-align:left;font-size:12px;color:#666}
-.doc-info .title{font-size:15px;font-weight:700;color:#1a1f2e;margin-bottom:4px}
-.hero{background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:26px;color:#fff;text-align:center}
-.hero h1{font-size:20px;font-weight:800;margin-bottom:6px}
-.hero p{font-size:13px;color:rgba(255,255,255,.8)}
-.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
-.meta-card{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:10px;padding:14px 16px}
-.meta-card .lbl{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.meta-card .val{font-size:14px;font-weight:700;color:#1a1f2e}
-.section-title{font-size:11px;font-weight:800;color:#fff;text-transform:uppercase;background:linear-gradient(90deg,#5b3fa0,#c44b1e);display:inline-block;padding:5px 14px;border-radius:6px;margin-bottom:14px;letter-spacing:.05em}
-table{width:100%;border-collapse:collapse;margin-bottom:20px}
-thead th{background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;padding:11px 12px;font-size:12px;font-weight:700;text-align:center}
-thead th:first-child{border-radius:0 8px 0 0}
-thead th:last-child{border-radius:8px 0 0 0}
-tbody tr:nth-child(even){background:#f8f9fc}
-tbody td{padding:11px 12px;border-bottom:1px solid #e8ebf0;font-size:13px;vertical-align:middle}
-tbody tr:last-child td{border-bottom:none}
-.total-section{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:11px;padding:16px 20px;margin-bottom:20px}
-.total-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e8ebf0;font-size:14px}
-.total-row:last-child{border-bottom:none;padding-top:10px}
-.total-row.highlight{background:#f0ecfb;padding:10px 12px;border-radius:8px;margin:6px 0;border-bottom:none}
-.total-lbl{color:#555;font-weight:500}
-.total-val{font-weight:700;font-family:'Courier New',monospace}
-.grand-total{background:linear-gradient(135deg,#3d2870,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;position:relative;overflow:hidden}
-.grand-total::before{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;background:rgba(255,255,255,.4)}
-.grand-total .lbl{font-size:14px;color:rgba(255,255,255,.85);font-weight:600}
-.grand-total .sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
-.grand-total .amount{font-size:32px;font-weight:900;color:#fff;font-family:'Courier New',monospace}
-.grand-total .sar{font-size:15px;font-weight:400;color:rgba(255,255,255,.6);margin-left:6px}
-.validity{background:#fff8e1;border:1px solid #fdd835;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#795548;display:flex;align-items:center;gap:8px}
-.footer{margin-top:30px;border-top:2px solid #5b3fa0;padding-top:14px;display:flex;justify-content:space-between;align-items:center}
-.footer-logo{font-size:13px;font-weight:700;color:#5b3fa0}
-.footer-info{font-size:10px;color:#999;text-align:left}
-.watermark{text-align:center;font-size:9px;color:#ccc;margin-top:8px}
-.print-bar{position:fixed;bottom:0;left:0;right:0;padding:14px;text-align:center;background:rgba(7,9,15,.9);backdrop-filter:blur(4px)}
-@media print{.print-bar{display:none!important}@page{margin:15mm;size:A4}}
-</style>
-</head>
-<body>
-<div class="page">
-
-  <div class="header">
-    <div class="logo-box">
-      <div class="logo-circle">B</div>
-      <div>
-        <div class="company-name">BOUD AI</div>
-        <div class="company-sub">شركة بُعد للحلول التقنية</div>
-      </div>
-    </div>
-    <div class="doc-info">
-      <div class="title">العرض المالي</div>
-      <div>تاريخ التقديم: \${dateEn}</div>
-      <div style="margin-top:3px;color:#5b3fa0;font-weight:600">هذا العرض صالح لمدة 90 يوم من تاريخ الإصدار</div>
-    </div>
-  </div>
-
-  <div class="hero">
-    <h1>العرض المالي لمشروع</h1>
-    <p style="font-size:16px;font-weight:700;margin:8px 0">\${pName}</p>
-    <p>مقدم إلى: <b>\${pClient || '—'}</b></p>
-  </div>
-
-  <div class="meta-grid">
-    <div class="meta-card">
-      <div class="lbl">اسم المشروع</div>
-      <div class="val">\${pName}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">مقدم إلى</div>
-      <div class="val">\${pClient || '—'}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">تاريخ التقديم</div>
-      <div class="val">\${dateEn}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">عدد البنود</div>
-      <div class="val">\${poqBands.length} بند</div>
-    </div>
-  </div>
-
-  <div class="section-title">جدول الكميات والأسعار</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:40px">#</th>
-        <th>البند</th>
-        <th style="width:90px">وحدة القياس</th>
-        <th style="width:70px">الكمية</th>
-        <th style="width:130px">سعر الوحدة</th>
-        <th style="width:140px">السعر الإجمالي</th>
-      </tr>
-    </thead>
-    <tbody>
-      \${bandRows}
-    </tbody>
-  </table>
-
-  <div class="total-section">
-    <div class="total-row highlight">
-      <span class="total-lbl" style="font-weight:700">التكلفة الإجمالية للمشروع من دون ضريبة القيمة المضافة (رقماً)</span>
-      <span class="total-val" style="color:#5b3fa0;font-size:16px">SAR \${fmt(subFinal)}</span>
-    </div>
-    <div class="total-row">
-      <span class="total-lbl">قيمة ضريبة القيمة المضافة 15%</span>
-      <span class="total-val">SAR \${fmt(vat)}</span>
-    </div>
-  </div>
-
-  <div class="grand-total">
-    <div>
-      <div class="lbl">التكلفة الإجمالية للمشروع شاملة ضريبة القيمة المضافة</div>
-      <div class="sub">المطبقة في المملكة العربية السعودية (رقماً)</div>
-    </div>
-    <div style="text-align:left">
-      <div class="amount"><span class="sar">SAR</span>\${fmt(total)}</div>
-    </div>
-  </div>
-
-  <div class="validity">
-    ⚠️ بيان إخلاء المسؤولية: يحتوي هذا المستند على معلومات سرية خاصة بشركة بُعد، مقدمة للاستخدام الحصري للمتلقي المقصود فقط.
-  </div>
-
-  <div class="footer">
-    <div class="footer-logo">BOUD AI · شركة بُعد</div>
-    <div class="footer-info">
-      <div>\${pName} · \${dateEn}</div>
-      <div>العرض المالي — سري وخاص</div>
-    </div>
-  </div>
-  <div class="watermark">هذا المستند سري ومخصص للعميل فقط</div>
-</div>
-
-<div class="print-bar">
-  <button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 40px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',Arial,sans-serif">
-    🖨️ طباعة / حفظ كـ PDF
-  </button>
-</div>
-</body>
-</html>`
-
-    const blob = new Blob([html], { type:'text/html' })
-    window.open(URL.createObjectURL(blob), '_blank')
-    toast('Client proposal generated!', 'ok')
-  }
 
   const loadProposalForEdit = (p) => {
     setPName(p.projName)
