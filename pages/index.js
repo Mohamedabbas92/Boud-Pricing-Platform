@@ -363,194 +363,598 @@ Keep band names short. Maximum 6 bands. Keep descriptions under 100 characters.
     if (!pName.trim()) { toast('Enter project name', 'err'); return }
     if (!poqBands.length) { toast('No bands yet', 'err'); return }
     const n = calcPOQTotal()
-    const date = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' })
-    const dateEn = new Date().toLocaleDateString('en-SA', { year:'numeric', month:'long', day:'numeric' })
+    const dateEn = new Date().toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' })
 
-    // Build bands rows for client table
-    let rowNum = 1
+    // Build pricing rows
     let bandRows = ''
-    poqBands.forEach(band => {
+    poqBands.forEach((band, idx) => {
       const b = calcBand(band)
-      const qty  = band.qty  || 1
-      const type = band.type || 'تقرير'
-      const unitPrice = Math.round(b.subtotal / qty)
-      bandRows += `<tr>
-        <td style="text-align:center;font-weight:700;color:#5b3fa0">\${rowNum++}</td>
-        <td style="text-align:right">\${band.name}</td>
-        <td style="text-align:center">\${type}</td>
-        <td style="text-align:center">\${qty}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace">\${fmt(unitPrice)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:700">\${fmt(b.subtotal)}</td>
+      const qty       = band.qty  || 1
+      const type      = band.type || 'تقرير'
+      const unitPrice = qty > 0 ? Math.round(b.subtotal / qty) : b.subtotal
+      const even      = idx % 2 === 1 ? 'background:#f4f3ff' : 'background:#fff'
+      bandRows += `<tr style="${even}">
+        <td style="text-align:center;font-weight:800;color:#5E56DE;padding:12px">${idx+1}</td>
+        <td style="text-align:right;padding:12px 16px 12px 12px;font-weight:600;line-height:1.5;font-size:13px;border-bottom:1px solid #e8e8f5">${band.name}</td>
+        <td style="text-align:center;padding:12px;border-bottom:1px solid #e8e8f5;font-size:13px">${type}</td>
+        <td style="text-align:center;padding:12px;border-bottom:1px solid #e8e8f5;font-size:13px">${qty}</td>
+        <td style="text-align:center;padding:12px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid #e8e8f5;font-size:13px">${unitPrice.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+        <td style="text-align:center;padding:12px;font-family:'Courier New',monospace;font-weight:800;color:#5E56DE;border-bottom:1px solid #e8e8f5;font-size:13px">${b.subtotal.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
       </tr>`
     })
 
     const subFinal = n.subFinal
     const vat      = n.vat
     const total    = n.total
+    const fmtNum   = (v) => v.toLocaleString('en-US', {minimumFractionDigits:2})
 
-    const html = `<!DOCTYPE html>
+    let html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>العرض المالي — \${pName}</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<title>العرض المالي</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Cairo',Arial,sans-serif;font-size:13px;color:#1a1f2e;background:#fff;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:900px;margin:0 auto;padding:40px 44px 80px}
-.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:3px solid #5b3fa0;margin-bottom:24px}
-.logo-box{display:flex;align-items:center;gap:12px}
-.logo-circle{width:52px;height:52px;background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px}
-.company-name{font-size:18px;font-weight:800;color:#5b3fa0}
-.company-sub{font-size:11px;color:#888;margin-top:2px}
-.doc-info{text-align:left;font-size:12px;color:#666}
-.doc-info .title{font-size:15px;font-weight:700;color:#1a1f2e;margin-bottom:4px}
-.hero{background:linear-gradient(135deg,#5b3fa0,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:26px;color:#fff;text-align:center}
-.hero h1{font-size:20px;font-weight:800;margin-bottom:6px}
-.hero p{font-size:13px;color:rgba(255,255,255,.8)}
-.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
-.meta-card{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:10px;padding:14px 16px}
-.meta-card .lbl{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.meta-card .val{font-size:14px;font-weight:700;color:#1a1f2e}
-.section-title{font-size:11px;font-weight:800;color:#fff;text-transform:uppercase;background:linear-gradient(90deg,#5b3fa0,#c44b1e);display:inline-block;padding:5px 14px;border-radius:6px;margin-bottom:14px;letter-spacing:.05em}
-table{width:100%;border-collapse:collapse;margin-bottom:20px}
-thead th{background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;padding:11px 12px;font-size:12px;font-weight:700;text-align:center}
-thead th:first-child{border-radius:0 8px 0 0}
-thead th:last-child{border-radius:8px 0 0 0}
-tbody tr:nth-child(even){background:#f8f9fc}
-tbody td{padding:11px 12px;border-bottom:1px solid #e8ebf0;font-size:13px;vertical-align:middle}
-tbody tr:last-child td{border-bottom:none}
-.total-section{background:#f8f9fc;border:1px solid #e8ebf0;border-radius:11px;padding:16px 20px;margin-bottom:20px}
-.total-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e8ebf0;font-size:14px}
-.total-row:last-child{border-bottom:none;padding-top:10px}
-.total-row.highlight{background:#f0ecfb;padding:10px 12px;border-radius:8px;margin:6px 0;border-bottom:none}
-.total-lbl{color:#555;font-weight:500}
-.total-val{font-weight:700;font-family:'Courier New',monospace}
-.grand-total{background:linear-gradient(135deg,#3d2870,#c44b1e);border-radius:12px;padding:22px 28px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;position:relative;overflow:hidden}
-.grand-total::before{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;background:rgba(255,255,255,.4)}
-.grand-total .lbl{font-size:14px;color:rgba(255,255,255,.85);font-weight:600}
-.grand-total .sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
-.grand-total .amount{font-size:32px;font-weight:900;color:#fff;font-family:'Courier New',monospace}
-.grand-total .sar{font-size:15px;font-weight:400;color:rgba(255,255,255,.6);margin-left:6px}
-.validity{background:#fff8e1;border:1px solid #fdd835;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#795548;display:flex;align-items:center;gap:8px}
-.footer{margin-top:30px;border-top:2px solid #5b3fa0;padding-top:14px;display:flex;justify-content:space-between;align-items:center}
-.footer-logo{font-size:13px;font-weight:700;color:#5b3fa0}
-.footer-info{font-size:10px;color:#999;text-align:left}
-.watermark{text-align:center;font-size:9px;color:#ccc;margin-top:8px}
-.print-bar{position:fixed;bottom:0;left:0;right:0;padding:14px;text-align:center;background:rgba(7,9,15,.9);backdrop-filter:blur(4px)}
-@media print{.print-bar{display:none!important}@page{margin:15mm;size:A4}}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Cairo', Arial, sans-serif;
+  color: #0D0D0D;
+  background: #fff;
+  direction: rtl;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0;
+  background: #fff;
+}
+
+/* ── COVER PAGE ── */
+.cover {
+  min-height: 100vh;
+  padding: 50px 48px 40px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-bottom: 3px solid #883F68;
+}
+.cover-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 60px;
+}
+.cover-logo img { height: 36px; object-fit: contain; }
+.cover-logo-text { font-size: 20px; font-weight: 800; color: #5E56DE; }
+.cover-badge {
+  display: inline-block;
+  background: #5E56DE;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+  letter-spacing: .5px;
+}
+.cover-title-label {
+  font-size: 18px;
+  color: #555;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.cover-title {
+  font-size: 32px;
+  font-weight: 900;
+  color: #0D0D0D;
+  line-height: 1.4;
+  margin-bottom: 40px;
+  max-width: 580px;
+}
+.cover-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+.cover-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.cover-meta-label { color: #777; font-weight: 500; }
+.cover-meta-value { color: #0D0D0D; font-weight: 700; }
+.cover-validity {
+  background: #f8f7ff;
+  border: 1px solid #d4d0f8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #5E56DE;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+.cover-from {
+  font-size: 13px;
+  color: #777;
+  margin-top: auto;
+}
+.cover-company {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0D0D0D;
+  margin-top: 6px;
+}
+.cover-disclaimer {
+  margin-top: 24px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border-right: 3px solid #883F68;
+  font-size: 11px;
+  color: #777;
+  line-height: 1.7;
+}
+.cover-footer {
+  margin-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid #e8e8f0;
+}
+.cover-footer-brand {
+  font-size: 12px;
+  font-weight: 700;
+  color: #883F68;
+}
+.cover-footer-page {
+  width: 32px; height: 32px;
+  background: #883F68;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 700;
+}
+
+/* ── ABOUT PAGE ── */
+.about-page {
+  min-height: 100vh;
+  padding: 40px 48px;
+  border-bottom: 3px solid #883F68;
+  position: relative;
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e8e8f0;
+}
+.page-header-logo img { height: 28px; }
+.page-header-logo-text { font-size: 15px; font-weight: 800; color: #5E56DE; }
+.section-heading {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0D0D0D;
+  margin-bottom: 16px;
+}
+.section-heading::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  background: #5E56DE;
+  margin-top: 6px;
+  border-radius: 2px;
+}
+.about-text {
+  font-size: 13px;
+  color: #4A4A4A;
+  line-height: 1.9;
+  margin-bottom: 12px;
+}
+.scope-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f7ff;
+  border-radius: 10px;
+  border: 1px solid #e0deff;
+}
+.scope-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #5E56DE;
+  margin-bottom: 12px;
+}
+.scope-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #4A4A4A;
+  line-height: 1.7;
+}
+.scope-dot {
+  width: 6px; height: 6px;
+  background: #883F68;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 7px;
+}
+.duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #5E56DE;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 20px;
+  margin-top: 12px;
+}
+
+/* ── PRICING PAGE ── */
+.pricing-page {
+  min-height: 100vh;
+  padding: 40px 48px;
+  border-bottom: 3px solid #883F68;
+}
+.pricing-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0D0D0D;
+  margin-bottom: 6px;
+}
+.pricing-subtitle {
+  font-size: 13px;
+  color: #777;
+  margin-bottom: 24px;
+}
+
+/* TABLE */
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(94,86,222,.12);
+}
+.pricing-table thead tr {
+  background: #5E56DE;
+}
+.pricing-table thead th {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 13px 12px;
+  text-align: center;
+  letter-spacing: .3px;
+}
+.pricing-table thead th.band-col { text-align: right; padding-right: 16px; }
+.pricing-table tbody tr:nth-child(odd)  { background: #fff; }
+.pricing-table tbody tr:nth-child(even) { background: #f4f3ff; }
+.pricing-table tbody td {
+  padding: 12px 12px;
+  font-size: 13px;
+  color: #0D0D0D;
+  border-bottom: 1px solid #e8e8f5;
+  text-align: center;
+  vertical-align: middle;
+}
+.pricing-table tbody td.band-col {
+  text-align: right;
+  padding-right: 16px;
+  font-weight: 600;
+  max-width: 260px;
+  line-height: 1.5;
+}
+.pricing-table tbody td.num-col {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+.pricing-table tbody td.total-col {
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  color: #5E56DE;
+}
+.pricing-table tbody td.index-col {
+  color: #5E56DE;
+  font-weight: 800;
+  font-size: 14px;
+}
+.pricing-table tfoot tr.total-row td {
+  background: #5E56DE;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 13px 12px;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+}
+.pricing-table tfoot tr.total-row td:first-child {
+  color: #fff;
+  font-family: 'Cairo', Arial, sans-serif;
+  font-size: 13px;
+  text-align: right;
+  padding-right: 16px;
+}
+.pricing-table tfoot tr.vat-row td {
+  background: #ede8ff;
+  color: #5E56DE;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 11px 12px;
+  font-family: 'Courier New', monospace;
+}
+.pricing-table tfoot tr.vat-row td:first-child {
+  font-family: 'Cairo', Arial, sans-serif;
+  color: #5E56DE;
+  text-align: right;
+  padding-right: 16px;
+}
+.pricing-table tfoot tr.grand-row td {
+  background: #883F68;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 14px 12px;
+  font-family: 'Courier New', monospace;
+}
+.pricing-table tfoot tr.grand-row td:first-child {
+  font-family: 'Cairo', Arial, sans-serif;
+  font-size: 13px;
+  text-align: right;
+  padding-right: 16px;
+  line-height: 1.5;
+}
+
+/* ── CLOSING PAGE ── */
+.closing-page {
+  min-height: 50vh;
+  padding: 60px 48px 40px;
+  border-bottom: 3px solid #883F68;
+  text-align: center;
+}
+.closing-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0D0D0D;
+  margin-bottom: 16px;
+}
+.closing-text {
+  font-size: 15px;
+  color: #4A4A4A;
+  line-height: 1.9;
+  max-width: 500px;
+  margin: 0 auto 30px;
+}
+.contact-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #f8f7ff;
+  border: 1px solid #e0deff;
+  border-radius: 10px;
+  padding: 20px 32px;
+  text-align: right;
+}
+.contact-name { font-size: 16px; font-weight: 700; color: #0D0D0D; }
+.contact-role { font-size: 12px; color: #777; margin-bottom: 6px; }
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4A4A4A;
+}
+.contact-icon { color: #5E56DE; font-size: 14px; }
+
+/* PAGE FOOTER */
+.page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid #e8e8f0;
+  margin-top: 30px;
+}
+.page-footer-brand { font-size: 11px; font-weight: 700; color: #883F68; }
+.page-footer-num {
+  width: 28px; height: 28px;
+  background: #883F68;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 12px; font-weight: 700;
+}
+
+/* PRINT */
+.print-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 14px; text-align: center;
+  background: rgba(10,10,20,.92); backdrop-filter: blur(4px);
+  z-index: 99;
+}
+@media print {
+  .print-bar { display: none !important; }
+  .page { max-width: 100%; }
+  .cover, .about-page, .pricing-page, .closing-page { page-break-after: always; min-height: auto; }
+  @page { margin: 15mm; size: A4; }
+}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="header">
-    <div class="logo-box">
-      <div class="logo-circle">B</div>
+  <!-- ═══════════ COVER PAGE ═══════════ -->
+  <div class="cover">
+    <div class="cover-logo">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#5E56DE,#883F68);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px">B</div>
       <div>
-        <div class="company-name">BOUD AI</div>
-        <div class="company-sub">شركة بُعد للحلول التقنية</div>
+        <div class="cover-logo-text">BOUD AI</div>
+        <div style="font-size:11px;color:#999">شركة بُعد للحلول التقنية</div>
       </div>
     </div>
-    <div class="doc-info">
-      <div class="title">العرض المالي</div>
-      <div>تاريخ التقديم: \${dateEn}</div>
-      <div style="margin-top:3px;color:#5b3fa0;font-weight:600">هذا العرض صالح لمدة 90 يوم من تاريخ الإصدار</div>
+
+    <div class="cover-badge">العرض المالي</div>
+    <div class="cover-title-label">العرض المالي لمشروع:</div>
+    <div class="cover-title" id="cover-project-name">اسم المشروع هنا</div>
+
+    <div class="cover-meta">
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">تاريخ التقديم:</span>
+        <span class="cover-meta-value" id="cover-date">التاريخ</span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">مقدم إلى:</span>
+        <span class="cover-meta-value" id="cover-client">اسم العميل</span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">من قبل:</span>
+        <span class="cover-meta-value">شركة بُعد للحلول التقنية</span>
+      </div>
+    </div>
+
+    <div class="cover-validity">⚠️ هذا العرض صالح لمدة 90 يوم من تاريخ الإصدار أعلاه</div>
+
+    <div class="cover-disclaimer">
+      <strong>بيان إخلاء المسؤولية:</strong> يحتوي هذا المستند على معلومات سرية خاصة بشركة بُعد والتي يتم توفيرها للاستخدام الحصري للمتلقي المقصود، وقد يتم منحها امتيازًا قانونيًا. إذا كان لديك سبب للاعتقاد بأنك لست المستلم المقصود، فإن الكشف عن أو نسخ أو نشر أو اتخاذ أي إجراء فيما يتعلق بهذا التواصل أو المعلومات الواردة فيه محظور وقد يكون غير قانوني.
+    </div>
+
+    <div class="cover-footer">
+      <div class="cover-footer-brand">Boud by LeanNode 2025 ©</div>
+      <div class="cover-footer-page">1</div>
     </div>
   </div>
 
-  <div class="hero">
-    <h1>العرض المالي لمشروع</h1>
-    <p style="font-size:16px;font-weight:700;margin:8px 0">\${pName}</p>
-    <p>مقدم إلى: <b>\${pClient || '—'}</b></p>
-  </div>
+  <!-- ═══════════ ABOUT PAGE ═══════════ -->
+  <div class="about-page">
+    <div class="page-header">
+      <div class="page-header-logo-text">BOUD AI</div>
+      <div style="font-size:12px;color:#999">شركة بُعد للحلول التقنية</div>
+    </div>
 
-  <div class="meta-grid">
-    <div class="meta-card">
-      <div class="lbl">اسم المشروع</div>
-      <div class="val">\${pName}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">مقدم إلى</div>
-      <div class="val">\${pClient || '—'}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">تاريخ التقديم</div>
-      <div class="val">\${dateEn}</div>
-    </div>
-    <div class="meta-card">
-      <div class="lbl">عدد البنود</div>
-      <div class="val">\${poqBands.length} بند</div>
-    </div>
-  </div>
+    <div class="section-heading">عن شركة بُعد</div>
+    <p class="about-text">شركة بُعد هي شركة رائدة في مجال تطوير المنتجات الرقمية وبناء المواقع الإلكترونية، ولديها سجل حافل من النجاحات والابتكارات في هذا المجال.</p>
+    <p class="about-text">قامت شركة بُعد بتصميم وتطوير مجموعة واسعة من المواقع الإلكترونية المتقدمة التي تخدم مختلف الصناعات، وطورت منتجات من تطبيقات الهاتف المحمول إلى منصات البرمجيات كخدمة، مما ساعد العملاء على التحول الرقمي وتحسين كفاءاتهم.</p>
+    <p class="about-text">تمتلك شركة بُعد خبرة عميقة في التصميم والتطوير بالإضافة إلى فريق متميز ذوي خبرة عالية، مما يمكنها من تحويل الأفكار إلى منتجات رقمية ناجحة تلبي احتياجات المستفيدين وتتجاوز توقعاتهم.</p>
 
-  <div class="section-title">جدول الكميات والأسعار</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:40px">#</th>
-        <th>البند</th>
-        <th style="width:90px">وحدة القياس</th>
-        <th style="width:70px">الكمية</th>
-        <th style="width:130px">سعر الوحدة</th>
-        <th style="width:140px">السعر الإجمالي</th>
-      </tr>
-    </thead>
-    <tbody>
-      \${bandRows}
-    </tbody>
-  </table>
-
-  <div class="total-section">
-    <div class="total-row highlight">
-      <span class="total-lbl" style="font-weight:700">التكلفة الإجمالية للمشروع من دون ضريبة القيمة المضافة (رقماً)</span>
-      <span class="total-val" style="color:#5b3fa0;font-size:16px">SAR \${fmt(subFinal)}</span>
+    <div class="scope-section">
+      <div class="scope-title">2. نطاق العمل</div>
+      <div class="scope-item"><div class="scope-dot"></div><div id="scope-text">يشمل نطاق المشروع تطوير وتشغيل وتحسين الأنظمة والتطبيقات الرقمية الخاصة بالمشروع، بما يدعم تقديم خدمات فعالة ومستدامة. ويتضمن ذلك تحليل متطلبات الأعمال وتحسين تجربة المستخدم وتطوير الخدمات.</div></div>
+      <div class="scope-item"><div class="scope-dot"></div><div>يشمل المشروع تطوير لوحات المعلومات والتقارير لدعم اتخاذ القرار، وتنفيذ التكامل مع الأنظمة والمنصات ذات العلاقة، إضافة إلى تطبيق ممارسات DevOps لضمان كفاءة النشر واستمرارية التشغيل.</div></div>
+      <div class="scope-item"><div class="scope-dot"></div><div>يتضمن النطاق كذلك تقديم الدعم الفني والتشغيلي، وإدارة التحديثات والتحسين المستمر وفق منهجيات Agile من خلال دورات تطوير قصيرة (Sprints) تضمن الاستجابة السريعة لمتطلبات العمل.</div></div>
+      <div class="duration-badge" id="duration-badge">📅 مدة المشروع: تُحدد حسب العقد</div>
     </div>
-    <div class="total-row">
-      <span class="total-lbl">قيمة ضريبة القيمة المضافة 15%</span>
-      <span class="total-val">SAR \${fmt(vat)}</span>
+
+    <div class="page-footer">
+      <div class="page-footer-brand">Boud by LeanNode 2025 ©</div>
+      <div class="page-footer-num">2</div>
     </div>
   </div>
 
-  <div class="grand-total">
-    <div>
-      <div class="lbl">التكلفة الإجمالية للمشروع شاملة ضريبة القيمة المضافة</div>
-      <div class="sub">المطبقة في المملكة العربية السعودية (رقماً)</div>
+  <!-- ═══════════ PRICING PAGE ═══════════ -->
+  <div class="pricing-page">
+    <div class="page-header">
+      <div class="page-header-logo-text">BOUD AI</div>
+      <div style="font-size:12px;color:#999">شركة بُعد للحلول التقنية</div>
     </div>
-    <div style="text-align:left">
-      <div class="amount"><span class="sar">SAR</span>\${fmt(total)}</div>
+
+    <div class="pricing-title">3. الشروط التجارية والعرض المالي</div>
+    <div class="pricing-subtitle">جدول الكميات والأسعار حسب كراسة المشروع:</div>
+
+    <table class="pricing-table">
+      <thead>
+        <tr>
+          <th style="width:38px">#</th>
+          <th class="band-col">البند</th>
+          <th style="width:90px">وحدة القياس</th>
+          <th style="width:65px">الكمية</th>
+          <th style="width:130px">سعر الوحدة</th>
+          <th style="width:140px">السعر الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody id="pricing-tbody">
+        <!-- rows injected by JS -->
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="5">التكلفة الإجمالية للمشروع من دون ضريبة القيمة المضافة (رقماً)</td>
+          <td id="total-excl-vat" style="text-align:center">0.00</td>
+        </tr>
+        <tr class="vat-row">
+          <td colspan="5">قيمة ضريبة القيمة المضافة 15%</td>
+          <td id="total-vat" style="text-align:center">0.00</td>
+        </tr>
+        <tr class="grand-row">
+          <td colspan="5">التكلفة الإجمالية للمشروع شاملة ضريبة القيمة المضافة المطبقة في المملكة العربية السعودية (رقماً)</td>
+          <td id="total-incl-vat" style="text-align:center">0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="page-footer" style="margin-top:20px">
+      <div class="page-footer-brand">Boud by LeanNode 2025 ©</div>
+      <div class="page-footer-num">3</div>
     </div>
   </div>
 
-  <div class="validity">
-    ⚠️ بيان إخلاء المسؤولية: يحتوي هذا المستند على معلومات سرية خاصة بشركة بُعد، مقدمة للاستخدام الحصري للمتلقي المقصود فقط.
-  </div>
+  <!-- ═══════════ CLOSING PAGE ═══════════ -->
+  <div class="closing-page">
+    <div class="page-header">
+      <div class="page-header-logo-text">BOUD AI</div>
+      <div style="font-size:12px;color:#999">شركة بُعد للحلول التقنية</div>
+    </div>
 
-  <div class="footer">
-    <div class="footer-logo">BOUD AI · شركة بُعد</div>
-    <div class="footer-info">
-      <div>\${pName} · \${dateEn}</div>
-      <div>العرض المالي — سري وخاص</div>
+    <div style="margin-top:40px">
+      <div class="closing-title">نهاية العرض</div>
+      <p class="closing-text">نود أن نتقدم لكم بجزيل الشكر والتقدير لاهتمامكم بخدمات شركة بُعد للحلول التقنية. يسعدنا التعاون معكم وتقديم أفضل الحلول التقنية المبتكرة.</p>
+      <p class="closing-text" style="margin-top:-10px">فريق بُعد.</p>
+    </div>
+
+    <div class="contact-card" style="margin:0 auto">
+      <div class="contact-name" id="contact-name">المسؤول عن العرض</div>
+      <div class="contact-role">فريق BOUD AI</div>
+      <div class="contact-item"><span class="contact-icon">📞</span><span id="contact-phone">—</span></div>
+      <div class="contact-item"><span class="contact-icon">✉️</span><span id="contact-email">—</span></div>
+    </div>
+
+    <div class="page-footer">
+      <div class="page-footer-brand">Boud by LeanNode 2025 ©</div>
+      <div class="page-footer-num">4</div>
     </div>
   </div>
-  <div class="watermark">هذا المستند سري ومخصص للعميل فقط</div>
+
 </div>
 
 <div class="print-bar">
-  <button onclick="window.print()" style="background:linear-gradient(135deg,#5b3fa0,#c44b1e);color:#fff;border:none;border-radius:8px;padding:12px 40px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Cairo',Arial,sans-serif">
+  <button onclick="window.print()" style="background:linear-gradient(135deg,#5E56DE,#883F68);color:#fff;border:none;border-radius:8px;padding:12px 44px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Cairo',Arial,sans-serif;letter-spacing:.5px">
     🖨️ طباعة / حفظ كـ PDF
   </button>
 </div>
+
 </body>
-</html>`
+</html>
+`
+    html = html
+      .replace('id="cover-project-name">اسم المشروع هنا', `id="cover-project-name">${pName}`)
+      .replace('id="cover-date">التاريخ', `id="cover-date">${dateEn}`)
+      .replace('id="cover-client">اسم العميل', `id="cover-client">${pClient||'—'}`)
+      .replace('id="pricing-tbody">\n        <!-- rows injected by JS -->', `id="pricing-tbody">${bandRows}`)
+      .replace('id="total-excl-vat" style="text-align:center">0.00', `id="total-excl-vat" style="text-align:center">${fmtNum(subFinal)}`)
+      .replace('id="total-vat" style="text-align:center">0.00', `id="total-vat" style="text-align:center">${fmtNum(vat)}`)
+      .replace('id="total-incl-vat" style="text-align:center">0.00', `id="total-incl-vat" style="text-align:center">${fmtNum(total)}`)
 
     const blob = new Blob([html], { type:'text/html' })
     window.open(URL.createObjectURL(blob), '_blank')
     toast('Client proposal generated!', 'ok')
   }
 
-
-  const genPOQProposal = () => {
+    const genPOQProposal = () => {
     if (!pName.trim()) { toast('Enter project name', 'err'); return }
     if (!poqBands.length) { toast('No bands — analyze contract first', 'err'); return }
     const n = calcPOQTotal()
@@ -1097,7 +1501,6 @@ function ViewToolsDB({ toolsDB, setToolsDB, toolSearch, setToolSearch }) {
 }
 
 function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, setPName, setPClient, setPProfit, setPRisk, setPDiscount, setPOh, setPoqBands, setView }) {
-  const [editingProp, setEditingProp] = useState(null)
   const filters = ['all','draft','sent','review','won','lost']
   const list = propFilter==='all' ? savedProps : savedProps.filter(p=>(p.status||'draft')===propFilter)
   const barColor = { draft:'var(--blue)', sent:'#a78bfa', review:'var(--gold)', won:'var(--green)', lost:'var(--red)' }
@@ -1105,15 +1508,23 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, s
   const del = (id) => { if(!confirm('Delete?'))return; setSavedProps(ps=>ps.filter(p=>p.id!=id)); toast('Deleted') }
 
   const loadProposalForEdit = (p) => {
+    // Clear first
+    setRoster([]); setPTools([]); setPVendors([])
+    setPoqAiStatus(null); setPoqStatus(null)
+    // Load proposal data
     setPName(p.projName)
     setPClient(p.client)
     setPProfit(p.pProfit || 30)
     setPRisk(p.pRisk || 10)
     setPDiscount(p.discount || 0)
     setPOh(p.pOh || '0.25')
-    setPoqBands(p.bands || [])
+    setPoqBands(p.bands && p.bands.length ? p.bands : [])
     setView('pricing')
-    toast('Proposal loaded for editing', 'ok')
+    if (!p.bands || !p.bands.length) {
+      toast('No bands saved with this proposal — add bands manually', 'warn')
+    } else {
+      toast('Proposal loaded — ' + p.bands.length + ' bands ready to edit', 'ok')
+    }
   }
 
   return (
@@ -1135,21 +1546,8 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, s
           <div style={{ padding:'14px 16px 14px 20px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
               <div style={{ flex:1 }}>
-                {editingProp === p.id ? (
-                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                    <input style={{ background:'var(--bg)', border:'1px solid var(--purple)', borderRadius:7, padding:'5px 10px', color:'var(--text)', fontSize:14, fontWeight:700, outline:'none', minWidth:200 }}
-                      value={p.projName} onChange={e => setSavedProps(ps => ps.map(x => x.id===p.id ? {...x, projName:e.target.value} : x))} />
-                    <input style={{ background:'var(--bg)', border:'1px solid var(--bd)', borderRadius:7, padding:'5px 10px', color:'var(--text)', fontSize:12, outline:'none', minWidth:150 }}
-                      value={p.client} onChange={e => setSavedProps(ps => ps.map(x => x.id===p.id ? {...x, client:e.target.value} : x))} />
-                    <button style={{ background:'rgba(34,197,94,.12)', color:'var(--green)', border:'1px solid rgba(34,197,94,.25)', padding:'4px 12px', borderRadius:7, fontSize:12, cursor:'pointer' }}
-                      onClick={() => setEditingProp(null)}>✓ Done</button>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ fontSize:14, fontWeight:700 }}>{p.projName}</div>
-                    <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>{p.client} · {new Date(p.savedAt).toLocaleDateString('en-SA',{year:'numeric',month:'short',day:'numeric'})}</div>
-                  </>
-                )}
+                <div style={{ fontSize:14, fontWeight:700 }}>{p.projName}</div>
+                <div style={{ fontSize:12, color:'var(--t2)', marginTop:2 }}>{p.client} · {new Date(p.savedAt).toLocaleDateString('en-SA',{year:'numeric',month:'short',day:'numeric'})}</div>
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
                 <div style={{ textAlign:'right' }}>
@@ -1158,13 +1556,7 @@ function ViewProposals({ savedProps, setSavedProps, propFilter, setPropFilter, s
                 </div>
                 <Tag color={PROP_TAG[p.status||'draft']}>{PROP_STATUS[p.status||'draft']?.icon} {PROP_STATUS[p.status||'draft']?.label}</Tag>
                 <button style={{ background:'rgba(91,63,160,.1)', color:'#c4b5fd', border:'1px solid rgba(91,63,160,.2)', padding:'3px 9px', borderRadius:7, fontSize:11, cursor:'pointer' }}
-                  onClick={() => {
-                    if (p.bands?.length) {
-                      loadProposalForEdit(p)
-                    } else {
-                      setEditingProp(editingProp === p.id ? null : p.id)
-                    }
-                  }}>✏️ Edit</button>
+                  onClick={() => loadProposalForEdit(p)}>✏️ Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:5, marginTop:10, paddingTop:10, borderTop:'1px solid var(--bd)', flexWrap:'wrap', alignItems:'center' }}>
